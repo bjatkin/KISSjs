@@ -1,0 +1,22 @@
+<style>
+    div {
+        width: 100%;
+        border: 1px solid "{div_color}";
+    }
+    button {
+        width: 100%;
+        background-color: "{btn_color}";
+    }
+</style>
+
+<div>
+    <button id="{id}" type="button">{label}</button>
+</div>
+
+<script>
+    elm = document.getElementById("$id$");
+    elm.click(() => {
+        alert("button with id: $id$ was pressed");
+        console.log("the pressed label was $label$");
+    });
+</script>

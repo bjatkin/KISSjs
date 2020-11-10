@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">
+        <style>
+            h1 {
+                color: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Import Components -->
+        <component tag="KissButton" src="components/button.html"></component>
+        <component tag="KissHeader" src="components/header.html"></component>
+        <component tag="KissListItem" src="components/list.html"></component>
+        <component tag="KissList" src="components/oList.html"></component>
+
+        <KissHeader div_color="red" title_color="white" adjective="Biggest"></KissHeader>
+
+        <p>We don’t serve their kind here! What? Your droids. 
+           They’ll have to wait outside. We don’t want them here. 
+           Listen, why don’t you wait out by the speeder.
+           We don’t want any trouble. I heartily agree with you sir.
+           Negola dewaghi wooldugger?!? He doesn’t like you. I’m sorry.
+           I don’t like you either You just watch yourself. We’re wanted men.
+           I have the death sentence in twelve systems.
+           I’ll be careful than. You’ll be dead. 
+           This little one isn’t worth the effort. Come let me buy you something…</p>
+        
+        <KissButton div_color="black" btn_color="white" id="ya_star">
+            <label>
+                <b>Ya StarWars!</b>
+            </label>
+        </KissButton>
+        <KissButton div_color="gray" btn_color="gray" id="meh_star">
+            <label>
+                <small>meh..</small>
+            </label>
+        </KissButton>
+        <KissButton div_color="red" btn_color="white" id="boo_star" label="boo starwars"></KissButton>
+
+        <KissList>
+            <list_items>
+                <KissListItem id="opt1" ><list_item><b>BOLD OPTION</b></list_item></KissListItem>
+                <KissListItem id="opt2" ><list_item><small>small opt</small></list_item></KissListItem>
+                <KissListItem id="opt3" list_item="regular option"></KissListItem>
+            </list_items>
+        </KissList>
+
+        <script compile="true" src="scripts/kiss.js"></script>
+    </body>
+</html>
