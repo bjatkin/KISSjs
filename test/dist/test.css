@@ -1,19 +1,41 @@
+div.KISS-BpLnfg{
+	width: 100%;
+	border: 1px solid black;
+}
+button.KISS-BpLnfg{
+	width: 100%;
+	background-color: white;
+	color: black;
+}
+div.KISS-Dsc2WD{
+	width: 100%;
+	border: 1px solid gray;
+}
+button.KISS-Dsc2WD{
+	width: 100%;
+	background-color: gray;
+	color: lightgray;
+}
+div.KISS-8F2qNf{
+	width: 100%;
+	border: 1px solid red;
+}
+button.KISS-8F2qNf{
+	width: 100%;
+	background-color: red;
+	color: yellow;
+}
+div.KISS-HK5a84{
+	width: 100%;
+	background-color: red;
+	height: 120px;
+}
+h1.KISS-HK5a84{
+	color: white;
+}
 h1{
 	color: blue;
 }
-div{
-	width: 100%;
-	border: 1px solid "{div_color;
-}
-div{
-	width: 100%;
-	border: 1px solid "{div_color;
-}
-div{
-	width: 100%;
-	border: 1px solid "{div_color;
-}
-div{
-	width: 100%;
-	background-color: "{div_color;
+body{
+	background-color: lightcoral;
 }

@@ -1,7 +1,8 @@
 <li id="{id}"> {list_item} </li>
 
 <script>
-    item = document.getElementById("$id$");
+    let item = document.getElementById("$id$");
+    console.log("Mouse Over Event for $id$ Created");
     item.addEventListener("mouseover", () => {
         item.style.color = "red";
     });

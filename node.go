@@ -27,6 +27,14 @@ func nodeIsWhiteSpace(node *html.Node) bool {
 	return true
 }
 
+func escapeParent(node *html.Node) *html.Node {
+	if node.Parent == nil || node.Parent.Parent == nil {
+		return node
+	}
+	node.Parent.Parent.InsertBefore(detach(node), node.Parent)
+	return node
+}
+
 func detach(node *html.Node) *html.Node {
 	if node.PrevSibling == nil {
 		if node.Parent != nil {
@@ -63,7 +71,7 @@ func cloneDeep(n *html.Node, parent *html.Node, prev *html.Node) *html.Node {
 		parent.LastChild = ret
 	}
 
-	return n
+	return ret
 }
 
 func clone(node *html.Node) *html.Node {
@@ -86,6 +94,25 @@ func clone(node *html.Node) *html.Node {
 	return ret
 }
 
+func find(root *html.Node, query string) []*html.Node {
+	ret := []*html.Node{}
+	for _, node := range listNodes(root) {
+		if strings.ToLower(node.Data) == strings.ToLower(query) {
+			ret = append(ret, node)
+		}
+	}
+	return ret
+}
+
+func findOne(root *html.Node, query string) *html.Node {
+	for _, node := range listNodes(root) {
+		if strings.ToLower(node.Data) == strings.ToLower(query) {
+			return node
+		}
+	}
+	return nil
+}
+
 func children(node *html.Node) []*html.Node {
 	ret := []*html.Node{}
 	if node == nil {
@@ -99,19 +126,34 @@ func children(node *html.Node) []*html.Node {
 	return ret
 }
 
-func hydrate(node *html.Node, path string, props []prop) error {
+func getAttr(node *html.Node, key string) (bool, *html.Attribute) {
+	for i := 0; i < len(node.Attr); i++ {
+		if node.Attr[i].Key == key {
+			return true, &node.Attr[i]
+		}
+	}
+	return false, &html.Attribute{}
+}
+
+func hydrate(node *html.Node, path string, props []prop) (bool, error) {
 	tree, err := newHTMLTree(node, path)
 	if err != nil {
-		return err
+		return false, err
 	}
+	changed := false
 	for _, prop := range props {
 		key := "{" + prop.key + "}"
 		for _, node := range tree.nodeList() {
 			if prop.isSimple() {
+				old := node.Data
 				node.Data = strings.ReplaceAll(node.Data, key, prop.val[0].Data)
+				changed = changed || (old == node.Data)
+
 				for i := 0; i < len(node.Attr); i++ {
 					attr := &node.Attr[i]
+					old := attr.Val
 					attr.Val = strings.ReplaceAll(attr.Val, key, prop.val[0].Data)
+					changed = changed || (old == attr.Val)
 				}
 				continue
 			}
@@ -119,6 +161,7 @@ func hydrate(node *html.Node, path string, props []prop) error {
 			node.Data = strings.TrimSpace(node.Data)
 			index := strings.Index(node.Data, key)
 			for index >= 0 {
+				changed = true
 				new := []*html.Node{}
 				if index > 0 {
 					pre := clone(node)
@@ -133,7 +176,7 @@ func hydrate(node *html.Node, path string, props []prop) error {
 				node.Data = node.Data[index+len(key):]
 				err := tree.addSiblings(node, new...)
 				if err != nil {
-					return err
+					return false, err
 				}
 
 				index = strings.Index(node.Data, key)
@@ -141,7 +184,7 @@ func hydrate(node *html.Node, path string, props []prop) error {
 		}
 	}
 
-	return nil
+	return changed, nil
 }
 
 func addClass(node *html.Node, class string) {
@@ -160,6 +203,21 @@ func addClass(node *html.Node, class string) {
 			html.Attribute{Key: "class", Val: class},
 		)
 	}
+}
+
+// Keep in mind that this will list all the siblings of root as well
+func listNodes(root *html.Node) []*html.Node {
+	ret := []*html.Node{root}
+
+	if root.FirstChild != nil {
+		ret = append(ret, listNodes(root.FirstChild)...)
+	}
+
+	if root.NextSibling != nil {
+		ret = append(ret, listNodes(root.NextSibling)...)
+	}
+
+	return ret
 }
 
 func generateScope(l int) string {
@@ -204,6 +262,7 @@ func newImportNode(node *html.Node) (importNode, error) {
 
 type componentNode struct {
 	node  *html.Node
+	tree  *htmlTree
 	props []prop
 	class importNode
 	scope string
@@ -244,4 +303,46 @@ func newComponentNode(node *html.Node, class importNode) (componentNode, error) 
 	ret.class = class
 
 	return ret, nil
+}
+
+func (comp *componentNode) components(path string) ([]componentNode, error) {
+	ret := []componentNode{}
+	file := path + comp.class.src
+	cNodes, err := parseComponentFile(file)
+	root := newNode("ComponentRoot", html.ElementNode)
+	if err != nil {
+		return ret, err
+	}
+
+	tree, err := newHTMLTree(root, getPath(file))
+	if err != nil {
+		return ret, err
+	}
+	tree.addChildren(root, cNodes...)
+	comp.tree = &tree
+
+	for _, c := range tree.components {
+		components, err := c.components(getPath(file))
+		if err != nil {
+			return ret, err
+		}
+		for _, add := range components {
+			add.depth++
+			ret = append(ret, add)
+		}
+	}
+
+	return ret, err
+}
+
+func (comp *componentNode) hydrate() (bool, error) {
+	changed := false
+	for _, node := range listNodes(comp.tree.root) {
+		c, err := hydrate(node, getPath(comp.tree.path), comp.props)
+		changed = changed || c
+		if err != nil {
+			return changed, err
+		}
+	}
+	return false, nil
 }

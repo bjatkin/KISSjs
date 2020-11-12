@@ -4,7 +4,9 @@
 {KISSimport: "sp2.js"}
 
 function doKiss() {
-    console.log("did the kiss")
-    observeIT() 
-    SinglePage()
+    console.log("did the kiss");
+    observeIT();
+    SinglePage();
 }
+
+doKiss();

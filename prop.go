@@ -1,6 +1,8 @@
 package main
 
-import "golang.org/x/net/html"
+import (
+	"golang.org/x/net/html"
+)
 
 type prop struct {
 	key string

@@ -1,11 +1,12 @@
 <style>
     div {
         width: 100%;
-        border: 1px solid "{div_color}";
+        border: 1px solid "@div_color@";
     }
     button {
         width: 100%;
-        background-color: "{btn_color}";
+        background-color: "@btn_color@";
+        color: "@txt_color@";
     }
 </style>
 
@@ -14,8 +15,8 @@
 </div>
 
 <script>
-    elm = document.getElementById("$id$");
-    elm.click(() => {
+    let elm = document.getElementById("$id$");
+    elm.addEventListener('click', () => {
         alert("button with id: $id$ was pressed");
         console.log("the pressed label was $label$");
     });

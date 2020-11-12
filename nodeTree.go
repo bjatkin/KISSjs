@@ -11,7 +11,7 @@ type htmlTree struct {
 	root       *html.Node
 	imports    []importNode
 	components []componentNode
-	styles     []cssRule
+	styles     []*cssRule
 	scripts    []*jsSnipit
 	path       string
 }
@@ -40,7 +40,7 @@ func newHTMLTree(root *html.Node, path string) (htmlTree, error) {
 }
 
 func (tree *htmlTree) nodeList() []*html.Node {
-	return tree.itter(tree.root)
+	return listNodes(tree.root)
 }
 
 func (tree *htmlTree) find(query string) []*html.Node {
@@ -62,23 +62,19 @@ func (tree *htmlTree) findOne(query string) *html.Node {
 	return nil
 }
 
-func (tree *htmlTree) itter(node *html.Node) []*html.Node {
-	ret := []*html.Node{}
+// func (tree *htmlTree) itter(node *html.Node) []*html.Node {
+// 	ret := []*html.Node{node}
 
-	// if !nodeIsWhiteSpace(node) {
-	ret = append(ret, node)
-	// }
+// 	if node.FirstChild != nil {
+// 		ret = append(ret, tree.itter(node.FirstChild)...)
+// 	}
 
-	if node.FirstChild != nil {
-		ret = append(ret, tree.itter(node.FirstChild)...)
-	}
+// 	if node.NextSibling != nil {
+// 		ret = append(ret, tree.itter(node.NextSibling)...)
+// 	}
 
-	if node.NextSibling != nil {
-		ret = append(ret, tree.itter(node.NextSibling)...)
-	}
-
-	return ret
-}
+// 	return ret
+// }
 
 func (tree *htmlTree) addChild(parent, child *html.Node) error {
 	if !tree.nodeInTree(parent) {
@@ -148,7 +144,6 @@ func (tree *htmlTree) collectImportNodes() error {
 		}
 		tree.imports = append(tree.imports, iNode)
 	}
-	tree.delete(imports...)
 	return nil
 }
 
@@ -158,7 +153,6 @@ func (tree *htmlTree) collectComponents() error {
 	}
 
 	components := []componentNode{}
-	max := 0
 	for _, i := range tree.imports {
 		comps := tree.find(i.tag)
 		for _, c := range comps {
@@ -166,17 +160,29 @@ func (tree *htmlTree) collectComponents() error {
 			if err != nil {
 				return err
 			}
-			if cNode.depth > max {
-				max = cNode.depth
-			}
 			components = append(components, cNode)
+			childNodes, err := cNode.components(tree.path)
+			if err != nil {
+				return err
+			}
+			components = append(components, childNodes...)
 		}
 	}
+	tree.components = components
 
-	// Sort the components
+	return nil
+}
+
+func (tree *htmlTree) sortComponents() {
+	max := 0
+	for _, c := range tree.components {
+		if c.depth > max {
+			max = c.depth
+		}
+	}
 	sortedComponents := []componentNode{}
-	for i := max; i > 0; i-- {
-		for _, comp := range components {
+	for i := max; i >= 0; i-- {
+		for _, comp := range tree.components {
 			if comp.depth == i {
 				sortedComponents = append(
 					sortedComponents,
@@ -187,8 +193,6 @@ func (tree *htmlTree) collectComponents() error {
 	}
 
 	tree.components = sortedComponents
-
-	return nil
 }
 
 func (tree *htmlTree) collectStyle() error {
@@ -197,15 +201,15 @@ func (tree *htmlTree) collectStyle() error {
 		return nil
 	}
 
-	for _, style := range children(styleNode) {
-		rule, err := cssFromNode(style)
+	if styleNode.FirstChild != nil {
+		rules, err := cssFromNode(styleNode.FirstChild)
 		if err != nil {
 			return err
 		}
-		tree.styles = append(tree.styles, rule)
-	}
 
-	return tree.delete(styleNode)
+		tree.styles = append(tree.styles, rules...)
+	}
+	return nil
 }
 
 func (tree *htmlTree) collectScripts() error {
