@@ -10,29 +10,20 @@ import (
 
 // Used
 func main() {
-	if len(os.Args) != 2 && len(os.Args) != 4 && len(os.Args) != 6 {
-		printUsageMSG()
+	args, err := parseArgs(os.Args)
+
+	if err != nil {
+		fmt.Println(usageMSG())
 		return
 	}
 
-	entryFile := os.Args[1]
-	output := strings.Split(entryFile, ".")[0] + "_compiled"
-	if len(os.Args) == 4 {
-		if os.Args[2] != "-o" {
-			printUsageMSG()
-			return
-		}
-
-		output = os.Args[3]
-	}
-
-	root, err := compileFileNEW(entryFile)
+	root, err := compileFileNEW(args.entry)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	scripts, err := extractScriptsNEW(root, getPath(entryFile))
+	scripts, err := extractScriptsNEW(root, getPath(args.entry))
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -50,10 +41,10 @@ func main() {
 	if body == nil {
 		fmt.Printf("Error: body node missing from compiled html document")
 	}
-	scriptNode := newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(output) + ".js"})
+	scriptNode := newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(args.output) + ".js"})
 	body.AppendChild(scriptNode)
 
-	jsFile, err := os.Create(output + ".js")
+	jsFile, err := os.Create(args.output + ".js")
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -73,11 +64,11 @@ func main() {
 	styleNode := newNode("link",
 		html.ElementNode,
 		html.Attribute{Key: "rel", Val: "stylesheet"},
-		html.Attribute{Key: "href", Val: removePath(output) + ".css"},
+		html.Attribute{Key: "href", Val: removePath(args.output) + ".css"},
 	)
 	head.AppendChild(styleNode)
 
-	cssFile, err := os.Create(output + ".css")
+	cssFile, err := os.Create(args.output + ".css")
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -89,7 +80,7 @@ func main() {
 	}
 	cssFile.Write([]byte(cssData))
 
-	file, err := os.Create(output + ".html")
+	file, err := os.Create(args.output + ".html")
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -100,11 +91,6 @@ func main() {
 		fmt.Printf("Error: %s", err)
 		return
 	}
-}
-
-// Used
-func printUsageMSG() {
-	fmt.Printf("Usage: \n\n\tkiss entry [-o output] [-g globals]")
 }
 
 // Used
@@ -414,191 +400,6 @@ func getParameters(component *html.Node) ([]simpleParameter, []complexParameter)
 
 	return simple, complex
 }
-
-// func compileEntryFile(file string) (htmlTree, error) {
-// 	node, err := parseEntryFile(file)
-// 	if err != nil {
-// 		return htmlTree{}, err
-// 	}
-
-// 	tree, err := newHTMLTree(node, getPath(file))
-// 	if err != nil {
-// 		return tree, err
-// 	}
-
-// 	tree.sortComponents()
-// 	for _, comp := range tree.components {
-// 		subTree, err := compileComponent(comp, getPath(file))
-// 		if err != nil {
-// 			return tree, err
-// 		}
-// 		err = tree.addSiblings(comp.node, children(subTree.findOne("body"))...)
-// 		if err != nil {
-// 			return tree, err
-// 		}
-// 		tree.delete(comp.node)
-
-// 		tree.scripts = append(tree.scripts, subTree.scripts...)
-// 		tree.styles = append(tree.styles, subTree.styles...)
-// 		for _, c := range subTree.components {
-// 			c.depth++
-// 		}
-// 		tree.components = append(tree.components, subTree.components...)
-// 	}
-
-// 	// Remove Compiled Scripts
-// 	scripts := tree.find("script")
-// 	for _, script := range scripts {
-// 		found, compile := getAttr(script, "compile")
-// 		if found && compile.Val == "true" {
-// 			tree.delete(script)
-// 		}
-// 	}
-
-// 	return tree, nil
-// }
-
-//
-// func compileComponent(comp componentNode, path string) (htmlTree, error) {
-// 	nodes, err := parseComponentFile(path + comp.class.src)
-// 	if err != nil {
-// 		return htmlTree{}, err
-// 	}
-
-// 	root := newNode("componentRoot", html.ElementNode)
-// 	for _, n := range nodes {
-// 		root.AppendChild(n)
-// 	}
-
-// 	tree, err := newHTMLTree(root, getPath(path+comp.class.src))
-// 	if err != nil {
-// 		return tree, err
-// 	}
-
-// 	tree.sortComponents()
-
-// 	for _, comp := range tree.components {
-// 		changed := true
-// 		for changed {
-// 			updated, err := comp.hydrate()
-// 			if err != nil {
-// 				return tree, err
-// 			}
-// 			changed = changed || updated
-// 		}
-// 	}
-
-// 	// Scope the CSS
-// 	// for _, node := range tree.nodeList() {
-// 	// 	addClass(node, comp.scope)
-// 	// }
-// 	// for _, style := range tree.styles {
-// 	// 	style.addClass(comp.scope)
-// 	// }
-
-// 	// Compile sub components
-// 	// tree.sortComponents()
-// 	// for _, subComp := range tree.components {
-// 	// 	subTree, err := compileComponent(subComp, getPath(path+comp.class.src))
-// 	// 	if err != nil {
-// 	// 		return tree, err
-// 	// 	}
-
-// 	// 	err = tree.addSiblings(subComp.node, children(subTree.findOne("body"))...)
-// 	// 	if err != nil {
-// 	// 		return tree, err
-// 	// 	}
-// 	// 	tree.delete(comp.node)
-
-// 	// 	tree.scripts = append(tree.scripts, subTree.scripts...)
-// 	// 	tree.styles = append(tree.styles, subTree.styles...)
-// 	// 	for _, c := range subTree.components {
-// 	// 		c.depth++
-// 	// 	}
-// 	// 	tree.components = append(tree.components, subTree.components...)
-// 	// }
-
-// 	// Hydrate Nodes
-// 	// tree.sortComponents()
-// 	// for _, subComp := range tree.components {
-// 	// 	fmt.Printf("HERE")
-// 	// 	for _, node := range tree.nodeList() {
-// 	// 		err = hydrate(node, getPath(subComp.class.src), subComp.props)
-// 	// 		if err != nil {
-// 	// 			return tree, err
-// 	// 		}
-// 	// 	}
-
-// 	// 	for _, style := range tree.styles {
-// 	// 		style.hydrate(subComp.props)
-// 	// 	}
-
-// 	// 	for _, script := range tree.scripts {
-// 	// 		script.hydrate(subComp.props)
-// 	// 	}
-// 	// }
-
-// 	// tree.delete(tree.find("script")...)
-
-// 	return tree, nil
-// }
-
-// func renderHTMLTree(tree htmlTree, output string) error {
-// 	// Render the output.css file
-// 	cssFile, err := os.Create(output + ".css")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	cssRules := ""
-// 	for _, rule := range tree.styles {
-// 		cssRules += rule.String() + "\n"
-// 	}
-// 	cssFile.Write([]byte(cssRules))
-
-// 	// Render the output.js file
-// 	// TODO: this will bundle everything which is not really what we want
-// 	//       we need to bundle only the component and main js but on the imports
-// 	jsFile, err := os.Create(output + ".js")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	jsScript := ""
-// 	for _, script := range tree.scripts {
-// 		jsScript += script.js + "\n"
-// 	}
-// 	jsFile.Write([]byte(jsScript))
-
-// 	head := tree.findOne("head")
-// 	if head == nil {
-// 		return errors.New("html tree is missing a head node")
-// 	}
-// 	// Link the output.css file to the tree
-// 	cssLink := newNode(
-// 		"link",
-// 		html.ElementNode,
-// 		html.Attribute{Key: "rel", Val: "stylesheet"},
-// 		html.Attribute{Key: "href", Val: output + ".css"},
-// 	)
-// 	err = tree.addChild(head, cssLink)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Link all the output.js file to the tree
-// 	jsLink := newNode(
-// 		"script",
-// 		html.ElementNode,
-// 		html.Attribute{Key: "href", Val: output + ".js"},
-// 	)
-// 	err = tree.addChild(head, jsLink)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Render the output.html file
-// 	htmlFile, err := os.Create(output + ".html")
-// 	return html.Render(htmlFile, tree.root)
-// }
 
 // Used
 func getPath(fileName string) string {

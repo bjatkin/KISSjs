@@ -154,28 +154,3 @@ func (css *cssRule) String() string {
 
 	return ret + "}"
 }
-
-// func (css *cssRule) hydrate(props []prop) bool {
-// 	changed := false
-// 	for _, prop := range props {
-// 		if !prop.isSimple() {
-// 			continue
-// 		}
-// 		for i := 0; i < len(css.selector); i++ {
-// 			old := css.selector[i]
-// 			css.selector[i] = strings.ReplaceAll(css.selector[i], "\"@"+prop.key+"@\"", prop.val[0].Data)
-// 			changed = changed || (old == css.selector[i])
-// 		}
-// 		for i := 0; i < len(css.styles); i++ {
-// 			old := css.styles[i].key
-// 			css.styles[i].key = strings.ReplaceAll(css.styles[i].key, "\"@"+prop.key+"@\"", prop.val[0].Data)
-// 			changed = changed || (old == css.styles[i].key)
-
-// 			old = css.styles[i].val
-// 			css.styles[i].val = strings.ReplaceAll(css.styles[i].val, "\"@"+prop.key+"@\"", prop.val[0].Data)
-// 			changed = changed || (old == css.styles[i].val)
-// 		}
-// 	}
-
-// 	return changed
-// }
