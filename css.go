@@ -7,15 +7,18 @@ import (
 	"golang.org/x/net/html"
 )
 
+// Used
 type cssStyle struct {
 	key, val string
 }
 
+// Used
 type cssRule struct {
 	selector []string
 	styles   []cssStyle
 }
 
+// Used
 func scopeCSS(component *html.Node) ([]*cssRule, error) {
 	scope := "KISS-" + generateScope(6)
 	style := findOne(component, "style")
@@ -38,6 +41,7 @@ func scopeCSS(component *html.Node) ([]*cssRule, error) {
 	return rules, nil
 }
 
+// Used
 func extractCSSNEW(root *html.Node) ([]*cssRule, error) {
 
 	// Get all the import tags so we can find components
@@ -93,6 +97,7 @@ func extractCSSNEW(root *html.Node) ([]*cssRule, error) {
 	return allStyles, nil
 }
 
+// Used
 func cssFromNode(node *html.Node) ([]*cssRule, error) {
 	ret := []*cssRule{}
 	if node.Type != html.TextNode {
@@ -129,6 +134,7 @@ func cssFromNode(node *html.Node) ([]*cssRule, error) {
 	return ret, nil
 }
 
+// Used
 func (css *cssRule) addClass(class string) {
 	for i := 0; i < len(css.selector); i++ {
 		if strings.Index(css.selector[i], class) < 0 {
@@ -137,6 +143,7 @@ func (css *cssRule) addClass(class string) {
 	}
 }
 
+// Used
 func (css *cssRule) String() string {
 	ret := strings.Join(css.selector, " ")
 
@@ -148,27 +155,27 @@ func (css *cssRule) String() string {
 	return ret + "}"
 }
 
-func (css *cssRule) hydrate(props []prop) bool {
-	changed := false
-	for _, prop := range props {
-		if !prop.isSimple() {
-			continue
-		}
-		for i := 0; i < len(css.selector); i++ {
-			old := css.selector[i]
-			css.selector[i] = strings.ReplaceAll(css.selector[i], "\"@"+prop.key+"@\"", prop.val[0].Data)
-			changed = changed || (old == css.selector[i])
-		}
-		for i := 0; i < len(css.styles); i++ {
-			old := css.styles[i].key
-			css.styles[i].key = strings.ReplaceAll(css.styles[i].key, "\"@"+prop.key+"@\"", prop.val[0].Data)
-			changed = changed || (old == css.styles[i].key)
+// func (css *cssRule) hydrate(props []prop) bool {
+// 	changed := false
+// 	for _, prop := range props {
+// 		if !prop.isSimple() {
+// 			continue
+// 		}
+// 		for i := 0; i < len(css.selector); i++ {
+// 			old := css.selector[i]
+// 			css.selector[i] = strings.ReplaceAll(css.selector[i], "\"@"+prop.key+"@\"", prop.val[0].Data)
+// 			changed = changed || (old == css.selector[i])
+// 		}
+// 		for i := 0; i < len(css.styles); i++ {
+// 			old := css.styles[i].key
+// 			css.styles[i].key = strings.ReplaceAll(css.styles[i].key, "\"@"+prop.key+"@\"", prop.val[0].Data)
+// 			changed = changed || (old == css.styles[i].key)
 
-			old = css.styles[i].val
-			css.styles[i].val = strings.ReplaceAll(css.styles[i].val, "\"@"+prop.key+"@\"", prop.val[0].Data)
-			changed = changed || (old == css.styles[i].val)
-		}
-	}
+// 			old = css.styles[i].val
+// 			css.styles[i].val = strings.ReplaceAll(css.styles[i].val, "\"@"+prop.key+"@\"", prop.val[0].Data)
+// 			changed = changed || (old == css.styles[i].val)
+// 		}
+// 	}
 
-	return changed
-}
+// 	return changed
+// }

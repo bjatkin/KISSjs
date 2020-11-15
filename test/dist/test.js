@@ -1,17 +1,3 @@
-{MSGtwo = "This is another pate"}
-{{KISSimport: "sp2.js"}
-
-MSGone = "this is one page"}
-{function observeIT() {
-    console.log("I watched it and it was good")
-}}
-{{KISSimport: "sp1.js"}
-{KISSimport: "sp2.js"}
-
-function SinglePage() {
-    console.log(MSGone)
-    console.log(MSGtwo)
-}}
 {
     console.log("Hey this Biggest is cool");
 }
@@ -64,15 +50,3 @@ function SinglePage() {
         item.style.color = "red";
     });
 }
-{{KISSimport: "observer.js"}
-{KISSimport: "sp.js"}
-{KISSimport: "sp1.js"}
-{KISSimport: "sp2.js"}
-
-function doKiss() {
-    console.log("did the kiss");
-    observeIT();
-    SinglePage();
-}
-
-doKiss();}
