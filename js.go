@@ -9,10 +9,10 @@ import (
 )
 
 type jsSnipit struct {
-	imports   []*jsSnipit
+	// imports   []*jsSnipit
 	js        string
 	src       string
-	depth     int
+	depth     int  // TODO: i will likely need to use this again at some point
 	noCompile bool // When this is set the script is templated and searched for import statments
 	noBundle  bool // When this is set the script is bundled into the bundle.js file (each snipit is added only once reguarless of how often it appers)
 }
@@ -21,20 +21,20 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 	ret := []*jsSnipit{}
 	for _, node := range listNodes(root) {
 		if node.Data == "script" {
-			srcOK, src := getAttr(node, "src")
-			noCompileOK, noCompile := getAttr(node, "nocompile")
-			noBundleOK, noBundle := getAttr(node, "nobundle")
+			src := getAttr(node, "src")
+			noCompile := getAttr(node, "nocompile")
+			noBundle := getAttr(node, "nobundle")
 			add := jsSnipit{
-				noCompile: noCompileOK || (noCompile != nil && noCompile.Val != "false"),
-				noBundle:  noBundleOK || (noBundle != nil && noBundle.Val != "false"),
+				noCompile: noCompile != nil && noCompile.Val != "false",
+				noBundle:  noBundle != nil && noBundle.Val != "false",
 				depth:     1,
 			}
 
-			if srcOK {
+			if src != nil {
 				add.src = path + src.Val
 			}
 
-			if srcOK && !add.noCompile {
+			if src != nil && !add.noCompile {
 				script, err := ioutil.ReadFile(add.src)
 				if err != nil {
 					return ret, err
@@ -47,7 +47,7 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 			}
 
 			ret = append(ret, &add)
-			snipits, err := compileJS(&add, getPath(add.src))
+			snipits, err := resolveJS(&add, getPath(add.src))
 			if err != nil {
 				return ret, err
 			}
@@ -103,7 +103,7 @@ func sortSnipits(snipits []*jsSnipit) []*jsSnipit {
 	return ret
 }
 
-func compileJS(snipit *jsSnipit, path string) ([]*jsSnipit, error) {
+func resolveJS(snipit *jsSnipit, path string) ([]*jsSnipit, error) {
 	tokens := tokenizeJS(snipit.js)
 	snipits, indexes := parseImports(tokens, []*jsSnipit{}, [][]int{})
 	ret := []*jsSnipit{}
@@ -123,7 +123,7 @@ func compileJS(snipit *jsSnipit, path string) ([]*jsSnipit, error) {
 
 	for _, snipit := range snipits {
 		if !snipit.noCompile {
-			js, err := compileJS(snipit, getPath(path+snipit.src))
+			js, err := resolveJS(snipit, getPath(path+snipit.src))
 			if err != nil {
 				return nil, err
 			}

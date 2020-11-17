@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -16,9 +17,20 @@ func main() {
 		return
 	}
 
-	root, err := compileFile(args.entry, args.globals)
+	root, outlined, err := compileFile(args.entry, args.globals)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
+		return
+	}
+
+	body := findOne(root, "body")
+	if body == nil {
+		fmt.Printf("Error: body node missing from compiled html document")
+		return
+	}
+	head := findOne(root, "head")
+	if head == nil {
+		fmt.Printf("Error: head node missing from compiled html document")
 		return
 	}
 
@@ -27,6 +39,14 @@ func main() {
 		fmt.Printf("Error: %s", err)
 		return
 	}
+	jsNodes, err := writeJS(args.output+".js", scripts)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		return
+	}
+	for _, node := range jsNodes {
+		body.AppendChild(node)
+	}
 
 	styles, err := extractCSS(root)
 	if err != nil {
@@ -34,105 +54,87 @@ func main() {
 		return
 	}
 
-	cleanTree(root)
-
-	body := findOne(root, "body")
-	if body == nil {
-		fmt.Printf("Error: body node missing from compiled html document")
-	}
-
-	jsFile, err := os.Create(args.output + ".js")
+	cssNode, err := writeCSS(args.output+".css", styles)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
+	head.AppendChild(cssNode)
 
-	jsScript := ""
-	for _, script := range scripts {
-		if script.noBundle && script.src != "" {
-			body.AppendChild(
-				newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: script.src}),
-			)
-			continue
+	componentNodes, err := getComponentNodes(root)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		return
+	}
+	for _, outline := range outlined {
+		scope := getAttr(outline, "scope")
+
+		var div *html.Node
+		for _, node := range componentNodes {
+			rootScope := getAttr(node.FirstChild, "scope")
+			if rootScope != nil && rootScope.Val == scope.Val {
+				div = node.FirstChild.FirstChild
+			}
 		}
-		if script.js == "" {
-			continue
+
+		scripts, err := extractScripts(outline, getPath(args.entry))
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
 		}
-		jsScript += "{" + script.js + "}\n"
+		outlineJSNodes, err := writeJS(getPath(args.output)+"/lazyComponents/"+scope.Val+".js", scripts)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		}
+
+		for _, node := range outlineJSNodes {
+			// Add to the div
+			src := getAttr(node, "src").Val
+			div.Attr = append(div.Attr, html.Attribute{Key: "js", Val: src})
+		}
+
+		styles, err := extractCSS(outline)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		}
+
+		outlineCSSNode, err := writeCSS(getPath(args.output)+"/lazyComponents/"+scope.Val+".css", styles)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		}
+		if outlineCSSNode != nil {
+			href := getAttr(outlineCSSNode, "href").Val
+			div.Attr = append(div.Attr, html.Attribute{Key: "css", Val: href})
+		}
+
+		err = writeHTML(getPath(args.output)+"/lazyComponents/"+scope.Val+".html", outline)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		}
+		div.Attr = append(div.Attr, html.Attribute{Key: "src", Val: "lazyComponents/" + scope.Val + ".html"})
 	}
 
-	scriptNode := newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(args.output) + ".js"})
-	body.AppendChild(scriptNode)
-
-	jsFile.Write([]byte(jsScript))
-
-	head := findOne(root, "head")
-	if head == nil {
-		fmt.Println("Error: head node missing from compiled html document")
-		return
-	}
-	styleNode := newNode("link",
-		html.ElementNode,
-		html.Attribute{Key: "rel", Val: "stylesheet"},
-		html.Attribute{Key: "href", Val: removePath(args.output) + ".css"},
-	)
-	head.AppendChild(styleNode)
-
-	cssFile, err := os.Create(args.output + ".css")
+	err = cleanTree(root)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	cssData := ""
-	for _, style := range styles {
-		cssData += style.String() + "\n"
-	}
-	cssFile.Write([]byte(cssData))
-
-	file, err := os.Create(args.output + ".html")
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
-	}
-
-	err = html.Render(file, root)
+	err = writeHTML(args.output+".html", root)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 }
 
-func cleanTree(root *html.Node) {
-	// Get all the import tags so we can find components
-	importTags := []string{}
-	for _, node := range listNodes(root) {
-		if node.Data == "component" {
-			ok, root := getAttr(node, "root")
-			if !ok || root.Val == "false" {
-				new := true
-				_, newTag := getAttr(node, "tag")
-				for _, tag := range importTags {
-					if newTag.Val == tag {
-						new = false
-						break
-					}
-				}
-				if new {
-					importTags = append(importTags, newTag.Val)
-				}
-			}
-		}
-	}
-
-	// Get all the component nodes
-	componentNodes := []*html.Node{}
-	for _, tag := range importTags {
-		for _, node := range listNodes(root) {
-			if strings.ToLower(node.Data) == strings.ToLower(tag) {
-				componentNodes = append(componentNodes, node)
-			}
-		}
+func cleanTree(root *html.Node) error {
+	componentNodes, err := getComponentNodes(root)
+	if err != nil {
+		return err
 	}
 
 	// Remove Component Nodes
@@ -150,99 +152,35 @@ func cleanTree(root *html.Node) {
 
 	// Remove Import statements
 	for _, node := range listNodes(root) {
-		ok, root := getAttr(node, "root")
-		if node.Data == "component" && (!ok || root.Val != "true") {
+		root := getAttr(node, "root")
+		if node.Data == "component" && (root != nil && root.Val != "false") {
 			node.Parent.RemoveChild(node)
 		}
 	}
+
+	return nil
 }
 
-func compileFile(entryFile, globalFile string) (*html.Node, error) {
+func compileFile(entryFile, globalFile string) (*html.Node, []*html.Node, error) {
 	root, err := parseEntryFile(entryFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	globals, err := parseComponentFile(globalFile)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	if globalFile != "" {
-		globals, err := parseComponentFile(globalFile)
-		if err != nil {
-			return nil, err
-		}
-		globalRoot := newNode("root", html.ElementNode)
-		for _, node := range globals {
-			globalRoot.AppendChild(detach(node))
-		}
-		globalParams, globalComplexParams := getParameters(globalRoot)
-
-		for _, param := range globalParams {
-			for _, node := range children(findOne(root, "style")) {
-				hydrateNode(node, param, "\"@", "@\"")
-			}
-			for _, script := range children(root) {
-				if script.Data != "script" {
-					continue
-				}
-				for _, node := range children(script) {
-					hydrateNode(node, param, "$", "$")
-				}
-			}
-			for _, node := range listNodes(root) {
-				if node.Parent != nil &&
-					(node.Parent.Data == "script" || node.Parent.Data == "style") {
-					continue
-				}
-				hydrateNode(node, param, "{", "}")
-			}
-		}
-
-		for _, param := range globalComplexParams {
-			for _, node := range listNodes(root) {
-				if node.Data == "script" || node.Data == "style" {
-					continue
-				}
-				if node.Parent != nil &&
-					(node.Parent.Data == "script" || node.Parent.Data == "style") {
-					continue
-				}
-				hydrateNodeComplex(node, param, "{", "}")
-			}
-		}
-	}
+	root = processGlobals(root, globals)
 
 	root, err = inlineComponents(root, getPath(entryFile))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Get all the import tags so we can find components
-	importTags := []string{}
-	for _, node := range listNodes(root) {
-		if node.Data == "component" {
-			ok, root := getAttr(node, "root")
-			if !ok || root.Val == "false" {
-				new := true
-				_, newTag := getAttr(node, "tag")
-				for _, tag := range importTags {
-					if newTag.Val == tag {
-						new = false
-						break
-					}
-				}
-				if new {
-					importTags = append(importTags, newTag.Val)
-				}
-			}
-		}
-	}
-
-	// Get all the component nodes
-	componentNodes := []*html.Node{}
-	for _, tag := range importTags {
-		for _, node := range listNodes(root) {
-			if strings.ToLower(node.Data) == strings.ToLower(tag) {
-				componentNodes = append(componentNodes, node)
-			}
-		}
+	componentNodes, err := getComponentNodes(root)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Instantiate the inlined components
@@ -250,31 +188,73 @@ func compileFile(entryFile, globalFile string) (*html.Node, error) {
 		processComponent(node)
 	}
 
-	return root, err
+	root, children, err := outlineComponents(root, getPath(entryFile))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return root, children, err
+}
+
+func processGlobals(root *html.Node, globals []*html.Node) *html.Node {
+	globalRoot := newNode("root", html.ElementNode)
+	for _, node := range globals {
+		globalRoot.AppendChild(detach(node))
+	}
+	globalParams, globalComplexParams := getParameters(globalRoot)
+
+	for _, param := range globalParams {
+		for _, node := range children(findOne(root, "style")) {
+			hydrateNode(node, param, "\"@", "@\"")
+		}
+		for _, script := range children(root) {
+			if script.Data != "script" {
+				continue
+			}
+			for _, node := range children(script) {
+				hydrateNode(node, param, "$", "$")
+			}
+		}
+		for _, node := range listNodes(root) {
+			if node.Parent != nil &&
+				(node.Parent.Data == "script" || node.Parent.Data == "style") {
+				continue
+			}
+			hydrateNode(node, param, "{", "}")
+		}
+	}
+
+	for _, param := range globalComplexParams {
+		for _, node := range listNodes(root) {
+			if node.Data == "script" || node.Data == "style" {
+				continue
+			}
+			if node.Parent != nil &&
+				(node.Parent.Data == "script" || node.Parent.Data == "style") {
+				continue
+			}
+			hydrateNodeComplex(node, param, "{", "}")
+		}
+	}
+
+	return root
 }
 
 func inlineComponents(root *html.Node, path string) (*html.Node, error) {
-	importNodes := []*html.Node{}
-	for _, node := range listNodes(root) {
-		if node.Data == "component" {
-			rootOK, root := getAttr(node, "root")
-			tagOK, tag := getAttr(node, "tag")
-			if (!rootOK || root.Val == "false") &&
-				(tagOK && tag.Val != "") {
-				importNodes = append(importNodes, node)
-			}
-		}
+	importNodes, err := getImportNodes(root)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, iNode := range importNodes {
 		for _, node := range listNodes(root) {
-			_, tag := getAttr(iNode, "tag")
+			tag := getAttr(iNode, "tag")
 			if strings.ToLower(node.Data) == strings.ToLower(tag.Val) {
 				child := newNode("component", html.ElementNode, html.Attribute{Key: "root", Val: "true"})
 				cNode := children(iNode)
 				newPath := path
-				ok, src := getAttr(iNode, "src")
-				if ok {
+				src := getAttr(iNode, "src")
+				if src != nil {
 					var err error
 					cNode, err = parseComponentFile(path + src.Val)
 					if err != nil {
@@ -299,6 +279,43 @@ func inlineComponents(root *html.Node, path string) (*html.Node, error) {
 	}
 
 	return root, nil
+}
+
+func outlineComponents(root *html.Node, path string) (*html.Node, []*html.Node, error) {
+	componentNodes, err := getComponentNodes(root)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	outlined := []*html.Node{}
+	scope := "KISS-" + generateScope(6)
+	for _, node := range componentNodes {
+		nobundle := getAttr(node, "nobundle")
+		id := getAttr(node, "nobundleid")
+		if nobundle != nil && nobundle.Val != "false" {
+			cRoot := findOne(node, "component")
+			addScope := true
+			for _, attr := range cRoot.Attr {
+				if attr.Key == "scope" {
+					addScope = false
+				}
+			}
+			if addScope {
+				cRoot.Attr = append(cRoot.Attr, html.Attribute{Key: "scope", Val: scope})
+			}
+
+			new := detach(clone(cRoot))
+			for _, child := range children(cRoot) {
+				new.AppendChild(detach(child))
+			}
+			outlined = append(outlined, new)
+
+			div := newNode("div", html.ElementNode, html.Attribute{Key: "id", Val: id.Val})
+			cRoot.AppendChild(div)
+		}
+	}
+
+	return root, outlined, nil
 }
 
 func parseEntryFile(file string) (*html.Node, error) {
@@ -337,6 +354,11 @@ func parseComponentFile(file string) ([]*html.Node, error) {
 }
 
 func processComponent(component *html.Node) {
+	nocompile := getAttr(component, "nocompile")
+	if nocompile != nil && nocompile.Val != "false" {
+		return
+	}
+
 	simple, complex := getParameters(component)
 
 	for _, param := range simple {
@@ -458,6 +480,72 @@ func getParameters(component *html.Node) ([]simpleParameter, []complexParameter)
 	return simple, complex
 }
 
+func writeCSS(file string, styles []*cssRule) (*html.Node, error) {
+	if len(styles) == 0 {
+		return nil, nil
+	}
+
+	cssFile, err := os.Create(file)
+	if err != nil {
+		return nil, err
+	}
+
+	cssData := ""
+	for _, style := range styles {
+		cssData += style.String() + "\n"
+	}
+	_, err = cssFile.Write([]byte(cssData))
+
+	styleNode := newNode("link",
+		html.ElementNode,
+		html.Attribute{Key: "rel", Val: "stylesheet"},
+		html.Attribute{Key: "href", Val: removePath(file)},
+	)
+
+	return styleNode, err
+}
+
+func writeJS(file string, scripts []*jsSnipit) ([]*html.Node, error) {
+	if len(scripts) == 0 {
+		return nil, nil
+	}
+	jsFile, err := os.Create(file)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := []*html.Node{}
+	jsScript := ""
+	for _, script := range scripts {
+		if script.noBundle && script.src != "" {
+			nodes = append(nodes,
+				newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: script.src}),
+			)
+			continue
+		}
+		if script.js == "" {
+			continue
+		}
+		jsScript += "{" + script.js + "}\n"
+	}
+
+	nodes = append(nodes,
+		newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(file)}),
+	)
+
+	_, err = jsFile.Write([]byte(jsScript))
+	return nodes, err
+}
+
+func writeHTML(file string, root *html.Node) error {
+	htmlFile, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+
+	return html.Render(htmlFile, root)
+}
+
 func getPath(fileName string) string {
 	last := strings.LastIndex(fileName, "/")
 	if last < -1 {
@@ -469,4 +557,77 @@ func getPath(fileName string) string {
 func removePath(fileName string) string {
 	last := strings.LastIndex(fileName, "/")
 	return fileName[last+1:]
+}
+
+func validImportNodes(nodes []*html.Node) error {
+	for _, node := range nodes {
+		tag := getAttr(node, "tag")
+		src := getAttr(node, "src")
+		child := node.FirstChild
+		if tag == nil || tag.Val == "" {
+			return errors.New("missing component tag or missing tag value")
+		}
+		if src != nil && child != nil {
+			return errors.New("both a src and inner nodes provide on component, only one is supported at a time")
+		}
+	}
+	return nil
+}
+
+func getImportNodes(root *html.Node) ([]*html.Node, error) {
+	importNodes := []*html.Node{}
+	for _, node := range listNodes(root) {
+		if node.Data == "component" {
+			root := getAttr(node, "root")
+			if root == nil || root.Val != "true" {
+				add := true
+				for _, iNode := range importNodes {
+					iTag := getAttr(iNode, "tag")
+					tag := getAttr(node, "tag")
+					if tag != nil && iTag.Val == tag.Val {
+						add = false
+					}
+				}
+				if add {
+					importNodes = append(importNodes, node)
+				}
+			}
+		}
+	}
+
+	if err := validImportNodes(importNodes); err != nil {
+		return nil, err
+	}
+
+	return importNodes, nil
+}
+
+func getImportTags(root *html.Node) ([]string, error) {
+	importNodes, err := getImportNodes(root)
+	if err != nil {
+		return []string{}, err
+	}
+	importTags := []string{}
+	for _, node := range importNodes {
+		tag := getAttr(node, "tag")
+		importTags = append(importTags, tag.Val)
+	}
+	return importTags, nil
+}
+
+func getComponentNodes(root *html.Node) ([]*html.Node, error) {
+	importNodes, err := getImportNodes(root)
+	if err != nil {
+		return nil, err
+	}
+
+	componentNodes := []*html.Node{}
+	for _, tag := range importNodes {
+		for _, node := range listNodes(root) {
+			if strings.ToLower(node.Data) == strings.ToLower(getAttr(tag, "tag").Val) {
+				componentNodes = append(componentNodes, node)
+			}
+		}
+	}
+	return componentNodes, nil
 }

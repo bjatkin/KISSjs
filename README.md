@@ -1,5 +1,15 @@
 # KISSjs a simple framework
 
+# Terminology
+   Compile - the process of resolving all imports into a file, inlining all data, and then templating add data
+   Parameters - values passed into a component
+   Proccess - the proccess of taking parameters and templating them into a node or nodes
+   Hydrate - the actuall proccess of replacing strings in a node. Should always be a child process of 'Process'
+   Inline - the proccess of copying all the component nodes from child nodes into the parent nodes
+   Outline - the proccess of removing nodes from the parent and breaking them back into a child
+   Parse - the process of converting text into a datastructure (e.g. html file into html nodes)
+   Resolve - the proccess of exploring/ retriving all the imports to a file
+
 # TODO
  - [x] JS should be scoped when added to the bundle js to prevent leaky variables
  - [x] Is the new inline method working?
@@ -13,21 +23,22 @@
    - [x] the bundle keyword means the script will be added to the bundle js file
    - [x] maybe this should be inverted 'nocompile' and 'nobundle' so that they are on by default
  - [x] Inline component deffinitions should be allowed so you don't always have to link an external file
- - [ ] How should middle ware be incorporated? (SASS compilers? TS compiler?)
+ - [x] support 'complie' and 'bundle' keywords for the KISS html components
+   - [x] compile means the component will be templated and serached for deeper imports
+   - [x] bundle means the component will be added to the main html file
+   - [x] no_bundle should create a div with a src to the component file which may still be compiled
+ - [ ] There is a bug where not all the JS scripts are being bundled correctly (missing observer.js)
+ - [ ] Script tag src attribute is being re-written when listed as no-compile no-bundle (see jquery import)
+ - [ ] Remove component outer tag from lazy components
+ - [ ] Add a default component so any unpassed parameter can still be set.
  - [ ] Start working on the JS poriton of the framework
     - [ ] Observer.js for double binding the view
     - [ ] SPWA.js for requesting a new view as a tmp view rather than reloading the whole page
     - [ ] SPWA.js may be unessisary depending on how 'no_bundle' html components end up working.
     - [ ] What else would be important here?
- - [ ] Can I build materialized components in this framework?
- - [ ] support 'complie' and 'bundle' keywords for the KISS html components
-   - [ ] compile means the component will be templated and serached for deeper imports
-   - [ ] bundle means the component will be added to the main html file
-   - [ ] no_bundle should create a div with a src to the component file which may still be compiled
- - [ ] The compile step is really slow right now. We should look for ways to speed it up.
- - [ ] Add a default component so any unpassed parameter can still be set.
+ - [ ] Can I build materialized or other fancy components in this framework?
 
- # IDEA probably super overkill but fun to think about
+ # IDEA (probably super overkill but fun to think about)
  html script:
    add variables with:
       <var name="a" val=10/>
@@ -129,7 +140,7 @@
                   <exp><var:i> + <var:target:len></exp>]
                </index>
             </index>
-            ==
+            !=
             <var:target/>
          </exp>
          <exp><var:index/> + 1</exp>

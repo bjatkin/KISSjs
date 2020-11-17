@@ -45,24 +45,9 @@ func scopeCSS(component *html.Node) ([]*cssRule, error) {
 func extractCSS(root *html.Node) ([]*cssRule, error) {
 
 	// Get all the import tags so we can find components
-	importTags := []string{}
-	for _, node := range listNodes(root) {
-		if node.Data == "component" {
-			ok, root := getAttr(node, "root")
-			if !ok || root.Val == "false" {
-				new := true
-				_, newTag := getAttr(node, "tag")
-				for _, tag := range importTags {
-					if newTag.Val == tag {
-						new = false
-						break
-					}
-				}
-				if new {
-					importTags = append(importTags, newTag.Val)
-				}
-			}
-		}
+	importTags, err := getImportTags(root)
+	if err != nil {
+		return nil, err
 	}
 
 	// scope all the component nodes

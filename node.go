@@ -125,13 +125,13 @@ func children(node *html.Node) []*html.Node {
 	return ret
 }
 
-func getAttr(node *html.Node, key string) (bool, *html.Attribute) {
+func getAttr(node *html.Node, key string) *html.Attribute {
 	for i := 0; i < len(node.Attr); i++ {
 		if node.Attr[i].Key == key {
-			return true, &node.Attr[i]
+			return &node.Attr[i]
 		}
 	}
-	return false, nil
+	return nil
 }
 
 func addClass(node *html.Node, class string) {
