@@ -27,11 +27,13 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 			add := jsSnipit{
 				noCompile: noCompile != nil && noCompile.Val != "false",
 				noBundle:  noBundle != nil && noBundle.Val != "false",
-				depth:     1,
 			}
 
 			if src != nil {
 				add.src = path + src.Val
+				if add.noBundle && add.noCompile {
+					add.src = src.Val
+				}
 			}
 
 			if src != nil && !add.noCompile {
@@ -47,7 +49,7 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 			}
 
 			ret = append(ret, &add)
-			snipits, err := resolveJS(&add, getPath(add.src))
+			snipits, err := resolveJS(&add, getPath(add.src), 1)
 			if err != nil {
 				return ret, err
 			}
@@ -103,12 +105,13 @@ func sortSnipits(snipits []*jsSnipit) []*jsSnipit {
 	return ret
 }
 
-func resolveJS(snipit *jsSnipit, path string) ([]*jsSnipit, error) {
+func resolveJS(snipit *jsSnipit, path string, depth int) ([]*jsSnipit, error) {
 	tokens := tokenizeJS(snipit.js)
 	snipits, indexes := parseImports(tokens, []*jsSnipit{}, [][]int{})
 	ret := []*jsSnipit{}
 
 	for _, snipit := range snipits {
+		snipit.depth = depth
 		ret = append(ret, snipit)
 	}
 
@@ -117,13 +120,24 @@ func resolveJS(snipit *jsSnipit, path string) ([]*jsSnipit, error) {
 		imports = append(imports, snipit.js[index[0]:index[1]+2])
 	}
 
+	for _, snipit := range ret {
+		if snipit.noBundle && snipit.noCompile {
+			continue
+		}
+		src, err := ioutil.ReadFile(path + snipit.src)
+		if err != nil {
+			return nil, err
+		}
+		snipit.js = string(src)
+	}
+
 	for _, i := range imports {
 		snipit.js = strings.ReplaceAll(snipit.js, i, "")
 	}
 
 	for _, snipit := range snipits {
 		if !snipit.noCompile {
-			js, err := resolveJS(snipit, getPath(path+snipit.src))
+			js, err := resolveJS(snipit, getPath(path+snipit.src), depth+1)
 			if err != nil {
 				return nil, err
 			}

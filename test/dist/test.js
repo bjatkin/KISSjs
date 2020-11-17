@@ -1,3 +1,17 @@
+{MSGtwo = "This is another pate"}
+{
+
+MSGone = "this is one page"}
+{function observeIT() {
+    console.log("I watched it and it was good")
+}}
+{
+
+
+function SinglePage() {
+    console.log(MSGone)
+    console.log(MSGtwo)
+}}
 {
     console.log("Hey this Biggest is cool");
 }
@@ -69,7 +83,18 @@ function doKiss() {
 }
 
 doKiss();
-externalFN();}
+externalFN();
+
+setTimeout(() => {
+    let url = document.getElementById("test").getAttribute("src")
+    html = fetch(url, {
+        method: "GET",
+    }).then(resp => resp.text()).
+    then(resp => {
+        console.log(resp);
+        document.getElementById("test").innerHTML = resp;
+    })
+}, 2500);}
 {
             let mainMsgMan = "This is the main script";
             mainMsgMan += "!! :)";

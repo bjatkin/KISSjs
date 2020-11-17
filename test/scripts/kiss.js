@@ -12,3 +12,14 @@ function doKiss() {
 
 doKiss();
 externalFN();
+
+setTimeout(() => {
+    let url = document.getElementById("test").getAttribute("src")
+    html = fetch(url, {
+        method: "GET",
+    }).then(resp => resp.text()).
+    then(resp => {
+        console.log(resp);
+        document.getElementById("test").innerHTML = resp;
+    })
+}, 2500);
