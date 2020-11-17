@@ -42,7 +42,7 @@ func scopeCSS(component *html.Node) ([]*cssRule, error) {
 }
 
 // Used
-func extractCSSNEW(root *html.Node) ([]*cssRule, error) {
+func extractCSS(root *html.Node) ([]*cssRule, error) {
 
 	// Get all the import tags so we can find components
 	importTags := []string{}

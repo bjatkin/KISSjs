@@ -50,3 +50,29 @@
         item.style.color = "red";
     });
 }
+{
+                console.log("THIS MEANS AN INLINE COMPONENT WAS ADDED")
+            }
+{
+                console.log("THIS MEANS AN INLINE COMPONENT WAS ADDED")
+            }
+{
+
+
+
+
+
+function doKiss() {
+    console.log("did the kiss");
+    observeIT();
+    SinglePage();
+}
+
+doKiss();
+externalFN();}
+{
+            let mainMsgMan = "This is the main script";
+            mainMsgMan += "!! :)";
+
+            console.log(mainMsgMan);
+        }

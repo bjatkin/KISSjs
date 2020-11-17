@@ -44,7 +44,7 @@ func validArgs(args []string) bool {
 
 func parseArgs(args []string) (kissArgs, error) {
 	if !validArgs(args) {
-		return kissArgs{}, errors.New("invalid args")
+		return kissArgs{}, errors.New("invalid arguments")
 	}
 
 	ret := kissArgs{
@@ -60,8 +60,4 @@ func parseArgs(args []string) (kissArgs, error) {
 		}
 	}
 	return ret, nil
-}
-
-func usageMSG() string {
-	return "Usage:\n\tkiss entry [-o output] [-g globals]\n"
 }

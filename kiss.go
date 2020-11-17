@@ -8,28 +8,27 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Used
 func main() {
 	args, err := parseArgs(os.Args)
 
 	if err != nil {
-		fmt.Println(usageMSG())
+		fmt.Printf("Usage:\n\tkiss entry [-o output] [-g globals]\n")
 		return
 	}
 
-	root, err := compileFileNEW(args.entry)
+	root, err := compileFile(args.entry, args.globals)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	scripts, err := extractScriptsNEW(root, getPath(args.entry))
+	scripts, err := extractScripts(root, getPath(args.entry))
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
 	}
 
-	styles, err := extractCSSNEW(root)
+	styles, err := extractCSS(root)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		return
@@ -41,8 +40,6 @@ func main() {
 	if body == nil {
 		fmt.Printf("Error: body node missing from compiled html document")
 	}
-	scriptNode := newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(args.output) + ".js"})
-	body.AppendChild(scriptNode)
 
 	jsFile, err := os.Create(args.output + ".js")
 	if err != nil {
@@ -52,8 +49,21 @@ func main() {
 
 	jsScript := ""
 	for _, script := range scripts {
+		if script.noBundle && script.src != "" {
+			body.AppendChild(
+				newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: script.src}),
+			)
+			continue
+		}
+		if script.js == "" {
+			continue
+		}
 		jsScript += "{" + script.js + "}\n"
 	}
+
+	scriptNode := newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(args.output) + ".js"})
+	body.AppendChild(scriptNode)
+
 	jsFile.Write([]byte(jsScript))
 
 	head := findOne(root, "head")
@@ -93,7 +103,6 @@ func main() {
 	}
 }
 
-// Used
 func cleanTree(root *html.Node) {
 	// Get all the import tags so we can find components
 	importTags := []string{}
@@ -148,11 +157,61 @@ func cleanTree(root *html.Node) {
 	}
 }
 
-// Used
-func compileFileNEW(file string) (*html.Node, error) {
-	root, err := inlineComponents(file, true)
+func compileFile(entryFile, globalFile string) (*html.Node, error) {
+	root, err := parseEntryFile(entryFile)
 	if err != nil {
-		return root, err
+		return nil, err
+	}
+
+	if globalFile != "" {
+		globals, err := parseComponentFile(globalFile)
+		if err != nil {
+			return nil, err
+		}
+		globalRoot := newNode("root", html.ElementNode)
+		for _, node := range globals {
+			globalRoot.AppendChild(detach(node))
+		}
+		globalParams, globalComplexParams := getParameters(globalRoot)
+
+		for _, param := range globalParams {
+			for _, node := range children(findOne(root, "style")) {
+				hydrateNode(node, param, "\"@", "@\"")
+			}
+			for _, script := range children(root) {
+				if script.Data != "script" {
+					continue
+				}
+				for _, node := range children(script) {
+					hydrateNode(node, param, "$", "$")
+				}
+			}
+			for _, node := range listNodes(root) {
+				if node.Parent != nil &&
+					(node.Parent.Data == "script" || node.Parent.Data == "style") {
+					continue
+				}
+				hydrateNode(node, param, "{", "}")
+			}
+		}
+
+		for _, param := range globalComplexParams {
+			for _, node := range listNodes(root) {
+				if node.Data == "script" || node.Data == "style" {
+					continue
+				}
+				if node.Parent != nil &&
+					(node.Parent.Data == "script" || node.Parent.Data == "style") {
+					continue
+				}
+				hydrateNodeComplex(node, param, "{", "}")
+			}
+		}
+	}
+
+	root, err = inlineComponents(root, getPath(entryFile))
+	if err != nil {
+		return nil, err
 	}
 
 	// Get all the import tags so we can find components
@@ -194,25 +253,14 @@ func compileFileNEW(file string) (*html.Node, error) {
 	return root, err
 }
 
-// Used
-func inlineComponents(file string, entry bool) (*html.Node, error) {
-	root, err := parseEntryFile(file)
-	if !entry {
-		root = newNode("component", html.ElementNode, html.Attribute{Key: "root", Val: "true"})
-		cNode, err := parseComponentFile(file)
-		if err != nil {
-			return root, err
-		}
-		for _, node := range cNode {
-			root.AppendChild(detach(node))
-		}
-	}
-
+func inlineComponents(root *html.Node, path string) (*html.Node, error) {
 	importNodes := []*html.Node{}
 	for _, node := range listNodes(root) {
 		if node.Data == "component" {
-			ok, root := getAttr(node, "root")
-			if !ok || root.Val == "false" {
+			rootOK, root := getAttr(node, "root")
+			tagOK, tag := getAttr(node, "tag")
+			if (!rootOK || root.Val == "false") &&
+				(tagOK && tag.Val != "") {
 				importNodes = append(importNodes, node)
 			}
 		}
@@ -222,8 +270,22 @@ func inlineComponents(file string, entry bool) (*html.Node, error) {
 		for _, node := range listNodes(root) {
 			_, tag := getAttr(iNode, "tag")
 			if strings.ToLower(node.Data) == strings.ToLower(tag.Val) {
-				_, src := getAttr(iNode, "src")
-				child, err := inlineComponents(getPath(file)+src.Val, false)
+				child := newNode("component", html.ElementNode, html.Attribute{Key: "root", Val: "true"})
+				cNode := children(iNode)
+				newPath := path
+				ok, src := getAttr(iNode, "src")
+				if ok {
+					var err error
+					cNode, err = parseComponentFile(path + src.Val)
+					if err != nil {
+						return nil, err
+					}
+					newPath = getPath(path + src.Val)
+				}
+				for _, node := range cNode {
+					child.AppendChild(detach(cloneDeep(node, nil, nil)))
+				}
+				child, err := inlineComponents(child, newPath)
 				if err != nil {
 					return root, err
 				}
@@ -231,12 +293,14 @@ func inlineComponents(file string, entry bool) (*html.Node, error) {
 				node.AppendChild(child)
 			}
 		}
+		for _, node := range children(iNode) {
+			detach(node)
+		}
 	}
 
-	return root, err
+	return root, nil
 }
 
-// Used
 func parseEntryFile(file string) (*html.Node, error) {
 	data, err := os.Open(file)
 	if err != nil {
@@ -246,7 +310,6 @@ func parseEntryFile(file string) (*html.Node, error) {
 	return html.Parse(data)
 }
 
-// Used
 func parseComponentFile(file string) ([]*html.Node, error) {
 	data, err := os.Open(file)
 	if err != nil {
@@ -273,7 +336,6 @@ func parseComponentFile(file string) ([]*html.Node, error) {
 	return children(root[0]), nil
 }
 
-// Used
 func processComponent(component *html.Node) {
 	simple, complex := getParameters(component)
 
@@ -319,7 +381,6 @@ func processComponent(component *html.Node) {
 	}
 }
 
-// Used
 func hydrateNode(node *html.Node, param simpleParameter, ss, ee string) {
 	key := ss + param.name + ee
 	node.Data = strings.ReplaceAll(node.Data, key, param.value)
@@ -329,7 +390,6 @@ func hydrateNode(node *html.Node, param simpleParameter, ss, ee string) {
 	}
 }
 
-// Used
 func hydrateNodeComplex(node *html.Node, param complexParameter, ss, ee string) {
 	key := ss + param.name + ee
 	index := strings.Index(node.Data, key)
@@ -350,19 +410,16 @@ func hydrateNodeComplex(node *html.Node, param complexParameter, ss, ee string) 
 	}
 }
 
-// Used
 type simpleParameter struct {
 	name, value string
 }
 
-// Used
 type complexParameter struct {
 	name   string
 	parent *html.Node
 	value  []*html.Node
 }
 
-// Used
 func getParameters(component *html.Node) ([]simpleParameter, []complexParameter) {
 	simple := []simpleParameter{}
 	complex := []complexParameter{}
@@ -401,7 +458,6 @@ func getParameters(component *html.Node) ([]simpleParameter, []complexParameter)
 	return simple, complex
 }
 
-// Used
 func getPath(fileName string) string {
 	last := strings.LastIndex(fileName, "/")
 	if last < -1 {
@@ -410,7 +466,6 @@ func getPath(fileName string) string {
 	return fileName[:last+1]
 }
 
-// Used
 func removePath(fileName string) string {
 	last := strings.LastIndex(fileName, "/")
 	return fileName[last+1:]

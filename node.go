@@ -7,7 +7,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Used
 func newNode(data string, nodeType html.NodeType, attr ...html.Attribute) *html.Node {
 	return &html.Node{
 		Data: data,
@@ -26,7 +25,6 @@ func nodeIsWhiteSpace(node *html.Node) bool {
 	return true
 }
 
-// Used
 // Does some weird ordering stuff...
 func escapeParent(node *html.Node) *html.Node {
 	if node.Parent == nil || node.Parent.Parent == nil {
@@ -36,7 +34,6 @@ func escapeParent(node *html.Node) *html.Node {
 	return node
 }
 
-// Used
 func detach(node *html.Node) *html.Node {
 	if node.PrevSibling == nil {
 		if node.Parent != nil {
@@ -59,7 +56,6 @@ func detach(node *html.Node) *html.Node {
 	return node
 }
 
-// Used
 func cloneDeep(n *html.Node, parent *html.Node, prev *html.Node) *html.Node {
 	if n == nil {
 		return nil
@@ -77,7 +73,6 @@ func cloneDeep(n *html.Node, parent *html.Node, prev *html.Node) *html.Node {
 	return ret
 }
 
-// Used
 func clone(node *html.Node) *html.Node {
 	ret := newNode(node.Data, node.Type)
 	ret.DataAtom = node.DataAtom
@@ -98,7 +93,6 @@ func clone(node *html.Node) *html.Node {
 	return ret
 }
 
-// Used
 func find(root *html.Node, query string) []*html.Node {
 	ret := []*html.Node{}
 	for _, node := range listNodes(root) {
@@ -109,7 +103,6 @@ func find(root *html.Node, query string) []*html.Node {
 	return ret
 }
 
-// Used
 func findOne(root *html.Node, query string) *html.Node {
 	for _, node := range listNodes(root) {
 		if strings.ToLower(node.Data) == strings.ToLower(query) {
@@ -119,7 +112,6 @@ func findOne(root *html.Node, query string) *html.Node {
 	return nil
 }
 
-// Used
 func children(node *html.Node) []*html.Node {
 	ret := []*html.Node{}
 	if node == nil {
@@ -133,17 +125,15 @@ func children(node *html.Node) []*html.Node {
 	return ret
 }
 
-// Used
 func getAttr(node *html.Node, key string) (bool, *html.Attribute) {
 	for i := 0; i < len(node.Attr); i++ {
 		if node.Attr[i].Key == key {
 			return true, &node.Attr[i]
 		}
 	}
-	return false, &html.Attribute{}
+	return false, nil
 }
 
-// Used
 func addClass(node *html.Node, class string) {
 	added := false
 	for _, attr := range node.Attr {
@@ -162,7 +152,6 @@ func addClass(node *html.Node, class string) {
 	}
 }
 
-// Used
 // Keep in mind that this will list all the siblings of root as well
 func listNodes(root *html.Node) []*html.Node {
 	ret := []*html.Node{root}
@@ -178,7 +167,6 @@ func listNodes(root *html.Node) []*html.Node {
 	return ret
 }
 
-// Used
 func generateScope(l int) string {
 	ref := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	ret := ""

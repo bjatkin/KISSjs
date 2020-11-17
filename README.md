@@ -7,6 +7,12 @@
  - [x] bundle css in the inline method
  - [x] bundle js in the inline method
  - [x] remove KISSimport statements from the JS code
+ - [x] the global config file should be an html file and should only pass values to the main view. From their they will have to be manually passed to deeper components
+ - [x] js script KISSimports should support both the 'compile' and 'bundle' keywords
+   - [x] the compile keywords means the script will be searched for import statments
+   - [x] the bundle keyword means the script will be added to the bundle js file
+   - [x] maybe this should be inverted 'nocompile' and 'nobundle' so that they are on by default
+ - [x] Inline component deffinitions should be allowed so you don't always have to link an external file
  - [ ] How should middle ware be incorporated? (SASS compilers? TS compiler?)
  - [ ] Start working on the JS poriton of the framework
     - [ ] Observer.js for double binding the view
@@ -14,18 +20,11 @@
     - [ ] SPWA.js may be unessisary depending on how 'no_bundle' html components end up working.
     - [ ] What else would be important here?
  - [ ] Can I build materialized components in this framework?
- - [ ] js script KISSimports should support both the 'compile' and 'bundle' keywords
-   - [ ] the compile keywords means the script will be searched for import statments
-   - [ ] the bundle keyword means the script will be added to the bundle js file
-   - [ ] maybe this should be inverted 'nocompile' and 'nobundle' so that they are on by default
  - [ ] support 'complie' and 'bundle' keywords for the KISS html components
    - [ ] compile means the component will be templated and serached for deeper imports
    - [ ] bundle means the component will be added to the main html file
    - [ ] no_bundle should create a div with a src to the component file which may still be compiled
- - [ ] currently 'complie' indicates both that the element with be instatiated and that it will be searched for imports. Should these two functions be split?
- - [ ] the global config file should be a yaml file and should only pass values to the main view. From their they will have to be manually passed to deeper components
  - [ ] The compile step is really slow right now. We should look for ways to speed it up.
- - [ ] Inline component deffinitions should be allowed so you don't always have to link an external file
  - [ ] Add a default component so any unpassed parameter can still be set.
 
  # IDEA probably super overkill but fun to think about
