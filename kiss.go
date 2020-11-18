@@ -59,7 +59,9 @@ func main() {
 		fmt.Printf("Error: %s", err)
 		return
 	}
-	head.AppendChild(cssNode)
+	if cssNode != nil {
+		head.AppendChild(cssNode)
+	}
 
 	componentNodes, err := getComponentNodes(root)
 	if err != nil {
@@ -67,6 +69,18 @@ func main() {
 		return
 	}
 	for _, outline := range outlined {
+		if _, err := os.Stat(getPath(args.output) + "/lazyComponents"); err != nil {
+			if os.IsNotExist(err) {
+				err = os.Mkdir(getPath(args.output)+"/lazyComponents", 0755)
+				if err != nil {
+					fmt.Printf("Error: %s", err)
+					return
+				}
+			} else {
+				fmt.Printf("Error: %s", err)
+				return
+			}
+		}
 		scope := getAttr(outline, "scope")
 
 		var div *html.Node
@@ -82,7 +96,7 @@ func main() {
 			fmt.Printf("Error: %s", err)
 			return
 		}
-		outlineJSNodes, err := writeJS(getPath(args.output)+"/lazyComponents/"+scope.Val+".js", scripts)
+		outlineJSNodes, err := writeJS(getPath(args.output)+"lazyComponents/"+scope.Val+".js", scripts)
 		if err != nil {
 			fmt.Printf("Error: %s", err)
 			return
@@ -91,7 +105,7 @@ func main() {
 		for _, node := range outlineJSNodes {
 			// Add to the div
 			src := getAttr(node, "src").Val
-			div.Attr = append(div.Attr, html.Attribute{Key: "js", Val: src})
+			div.Attr = append(div.Attr, html.Attribute{Key: "js", Val: "lazyComponents/" + src})
 		}
 
 		styles, err := extractCSS(outline)
@@ -100,17 +114,17 @@ func main() {
 			return
 		}
 
-		outlineCSSNode, err := writeCSS(getPath(args.output)+"/lazyComponents/"+scope.Val+".css", styles)
+		outlineCSSNode, err := writeCSS(getPath(args.output)+"lazyComponents/"+scope.Val+".css", styles)
 		if err != nil {
 			fmt.Printf("Error: %s", err)
 			return
 		}
 		if outlineCSSNode != nil {
 			href := getAttr(outlineCSSNode, "href").Val
-			div.Attr = append(div.Attr, html.Attribute{Key: "css", Val: href})
+			div.Attr = append(div.Attr, html.Attribute{Key: "css", Val: "lazyComponents/" + href})
 		}
 
-		err = writeHTML(getPath(args.output)+"/lazyComponents/"+scope.Val+".html", outline)
+		err = writeHTML(getPath(args.output)+"lazyComponents/"+scope.Val+".html", outline)
 		if err != nil {
 			fmt.Printf("Error: %s", err)
 			return
@@ -152,8 +166,7 @@ func cleanTree(root *html.Node) error {
 
 	// Remove Import statements
 	for _, node := range listNodes(root) {
-		root := getAttr(node, "root")
-		if node.Data == "component" && (root != nil && root.Val != "false") {
+		if node.Data == "component" {
 			node.Parent.RemoveChild(node)
 		}
 	}
@@ -166,9 +179,13 @@ func compileFile(entryFile, globalFile string) (*html.Node, []*html.Node, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	globals, err := parseComponentFile(globalFile)
-	if err != nil {
-		return nil, nil, err
+
+	var globals []*html.Node
+	if globalFile != "" {
+		globals, err = parseComponentFile(globalFile)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	root = processGlobals(root, globals)
@@ -288,11 +305,11 @@ func outlineComponents(root *html.Node, path string) (*html.Node, []*html.Node, 
 	}
 
 	outlined := []*html.Node{}
-	scope := "KISS-" + generateScope(6)
 	for _, node := range componentNodes {
 		nobundle := getAttr(node, "nobundle")
 		id := getAttr(node, "nobundleid")
 		if nobundle != nil && nobundle.Val != "false" {
+			scope := "KISS-" + generateScope(6)
 			cRoot := findOne(node, "component")
 			addScope := true
 			for _, attr := range cRoot.Attr {

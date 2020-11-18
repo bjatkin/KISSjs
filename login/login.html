@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="picnic.css">
+        <style>
+            #login-div {
+                max-width: 400px;
+            }
+            #logo {
+                margin-top: 100px;
+                width: 400px;
+            }
+            #bg {
+                z-index: -1;
+                position: absolute;
+                top: 0px;
+                right: 0px;
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+            }
+            #fg {
+                z-index: 1;
+                position: absolute;
+                top: 0px;
+                right: 0px;
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                opacity: 0.0;
+                display: none;
+            }
+            .btn-area {
+                height: 55px;
+            }
+            .half-btn {
+                width: 190px;
+            }
+            .center {
+                margin: auto;
+            }
+            .right {
+                float: right;
+            }
+            .left {
+                float: left;
+            }
+            .wide {
+                width: 100%;
+            }
+            .center-text {
+                text-align: center;
+            }
+            .close-text {
+                margin: 0px;
+            }
+            html, body {margin: 0; height: 100%; overflow: hidden}
+        </style>
+    </head>
+    <body>
+        <component tag="logo" src="atom-symbol-svgrepo-com.svg"></component>
+        <component tag="bg" src="Sun-Tornado.svg"></component>
+
+        <div id="bg">
+            <bg></bg>
+        </div>
+        <div id="fg">
+            <bg></bg>
+        </div>
+        <div id="login_page" class="wide">
+            <div id="login-div" class="center">
+                <div id="logo" class="center">
+                    <logo></logo>
+                </div>
+                <fieldset class="flex">
+                    <label><input type="email" placeholder="Email"></label>
+                    <label><input type="password" placeholder="Password"></label>
+                </fieldset>
+                <div class="btn-area">
+                    <button class="half-btn right">Sign In</button>
+                </div>
+                <a id="forgot-link" class="left" href="#">
+                    <p class="close-text">Forgot Password?</p>
+                </a>
+                <div class="center-text right">
+                    <a id="signup-link" href="#">
+                        <p class="close-text">Don't have an account?<br/>Sign Up</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <component tag="forgot_password" src="forgot_password.html"></component>
+        <forgot_password nobundle nobundleid="forgot_page"></forgot_password>
+
+        <component tag="signup" src="signup.html"></component>
+        <signup nobundle nobundleid="signup_page"></signup>
+
+        <script>
+            ({KISSimport: "../js/lazyLoad.js"})
+            hideComponent("forgot_page");
+            hideComponent("signup_page");
+
+            let fading = false;
+            function startFadeIn() {
+                if (fading) {
+                    return;
+                }
+                document.getElementById("fg").style.display = "unset";
+                document.getElementById("fg").style.opacity = 0;
+                fading = true;
+                window.requestAnimationFrame(fadeInFG)
+            }
+
+            function startFadeOut() {
+                if (fading) {
+                    return;
+                }
+                fading = true
+                window.requestAnimationFrame(fadeOutFG)
+            }
+
+            function fadeInFG() {
+                opacity = parseFloat(document.getElementById("fg").style.opacity);
+                if (opacity < 1) {
+                    document.getElementById("fg").style.opacity = opacity + 0.1;
+                    window.requestAnimationFrame(fadeInFG)
+                } else {
+                    fading = false;
+                }
+            }
+
+            function fadeOutFG() {
+                opacity = parseFloat(document.getElementById("fg").style.opacity);
+                if (opacity > 0) {
+                    document.getElementById("fg").style.opacity = opacity - 0.1;
+                    window.requestAnimationFrame(fadeOutFG)
+                } else {
+                    document.getElementById("fg").style.display = "none";
+                    document.getElementById("fg").style.opacity = 0;
+                    fading = false;
+                }
+            } 
+ 
+            document.getElementById("forgot-link").addEventListener("click", () => {
+                startFadeIn();
+                lazyLoad("forgot_page", 700).
+                then(() => {
+                    startFadeOut();
+                    hideComponent("login_page");
+                    showComponent("forgot_page");
+                })
+            });
+            document.getElementById("signup-link").addEventListener("click", () => {
+                startFadeIn();
+                console.log(lazyLoad("signup_page", 700).
+                then(() => {
+                    startFadeOut();
+                    hideComponent("login_page");
+                    showComponent("signup_page");
+                }));
+            });
+        </script>
+    </body>
+</html>

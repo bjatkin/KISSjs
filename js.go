@@ -49,7 +49,7 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 			}
 
 			ret = append(ret, &add)
-			snipits, err := resolveJS(&add, getPath(add.src), 1)
+			snipits, err := resolveJS(&add, getPath(path+add.src), 1)
 			if err != nil {
 				return ret, err
 			}
