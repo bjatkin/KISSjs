@@ -1,6 +1,7 @@
 let loaded = [];
 
 var lazyLoad = (id, wait) => {
+    hideComponent(id);
     for (let i = 0; i < loaded.length; i++) {
         if (loaded[i] == id) {
             return Promise.resolve(null);
