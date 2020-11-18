@@ -27,18 +27,21 @@
    - [x] compile means the component will be templated and serached for deeper imports
    - [x] bundle means the component will be added to the main html file
    - [x] no_bundle should create a div with a src to the component file which may still be compiled
- - [ ] There is a bug where not all the JS scripts are being bundled correctly (missing observer.js)
- - [ ] Script tag src attribute is being re-written when listed as no-compile no-bundle (see jquery import)
+ - [x] There is a bug where not all the JS scripts are being bundled correctly (missing observer.js)
+ - [x] Script tag src attribute is being re-written when listed as no-compile no-bundle (see jquery import)
+ - [x] Can I build a basic login page with this system?
+ - [x] Start working on the JS poriton of the framework
+    - [x] Observer.js for double binding the view
+    - [x] SPWA.js for requesting a new view as a tmp view rather than reloading the whole page
+    - [ ] What else would be important here?
+ - [ ] There is an error where loading the js scripts is failing (login/login.js)
+ - [ ] Should I rebuild everything one more time? (use custom nodes to mimic the html.Node?)
  - [ ] Remove component outer tag from lazy components
  - [ ] Add a default component so any unpassed parameter can still be set.
- - [ ] Start working on the JS poriton of the framework
-    - [ ] Observer.js for double binding the view
-    - [ ] SPWA.js for requesting a new view as a tmp view rather than reloading the whole page
-    - [ ] SPWA.js may be unessisary depending on how 'no_bundle' html components end up working.
-    - [ ] What else would be important here?
  - [ ] Can I build materialized or other fancy components in this framework?
 
  # IDEA (probably super overkill but fun to think about)
+ ```
  html script:
    add variables with:
       <var name="a" val=10/>
@@ -176,3 +179,4 @@
          <var:b>
       </b>
    </add>
+   ```

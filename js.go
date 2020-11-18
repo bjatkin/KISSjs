@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strings"
@@ -49,7 +50,10 @@ func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
 			}
 
 			ret = append(ret, &add)
-			snipits, err := resolveJS(&add, getPath(path+add.src), 1)
+			fmt.Println("path", path)
+			fmt.Println("src", add.src)
+			fmt.Println(getPath(add.src))
+			snipits, err := resolveJS(&add, getPath(add.src), 1)
 			if err != nil {
 				return ret, err
 			}
@@ -106,6 +110,7 @@ func sortSnipits(snipits []*jsSnipit) []*jsSnipit {
 }
 
 func resolveJS(snipit *jsSnipit, path string, depth int) ([]*jsSnipit, error) {
+	fmt.Println("Path", path, "src", snipit.src)
 	tokens := tokenizeJS(snipit.js)
 	snipits, indexes := parseImports(tokens, []*jsSnipit{}, [][]int{})
 	ret := []*jsSnipit{}

@@ -59,3 +59,13 @@ document.getElementById("signup-link").addEventListener("click", () => {
         showComponent("signup_page");
     }));
 });
+
+({KISSimport: "../js/observe.js"})
+
+var user = observe({
+    username: "",
+    password: "",
+}).
+onChange(["username"], (o) => {
+    console.log(o.username);
+});

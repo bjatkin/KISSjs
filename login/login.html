@@ -73,7 +73,7 @@
                     <logo></logo>
                 </div>
                 <fieldset class="flex">
-                    <label><input type="email" placeholder="Email"></label>
+                    <label><input type="email" placeholder="Email" onkeyup="(()=>user.username=this.value)()"></label>
                     <label><input type="password" placeholder="Password"></label>
                 </fieldset>
                 <div class="btn-area">
