@@ -163,12 +163,12 @@ type jsToken struct {
 const (
 	tokenTypeOpen = iota
 	tokenTypeClose
-	tokenTypeKeyword
+	// tokenTypeKeyword
 	tokenTypeValue
-	tokenTypeWhiteSpace
-	tokenTypeColon
-	tokenTypeComma
-	tokenTypeAny
+	// tokenTypeWhiteSpace
+	// tokenTypeColon
+	// tokenTypeComma
+	// tokenTypeAny
 )
 
 func tokenList() []jsToken {
