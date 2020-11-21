@@ -162,9 +162,9 @@ type jsToken struct {
 
 const (
 	tokenTypeOpen = iota
-	tokenTypeClose
+	// tokenTypeClose
 	// tokenTypeKeyword
-	tokenTypeValue
+	// tokenTypeValue
 	// tokenTypeWhiteSpace
 	// tokenTypeColon
 	// tokenTypeComma
@@ -177,10 +177,10 @@ func tokenList() []jsToken {
 			tokenType: tokenTypeOpen,
 			pattern:   regexp.MustCompile(`^\({`),
 		},
-		jsToken{
-			tokenType: tokenTypeClose,
-			pattern:   regexp.MustCompile(`^}\)`),
-		},
+		// jsToken{
+		// 	tokenType: tokenTypeClose,
+		// 	pattern:   regexp.MustCompile(`^}\)`),
+		// },
 		jsToken{
 			tokenType: tokenTypeKeyword,
 			pattern:   regexp.MustCompile(`^KISSimport`),
@@ -219,6 +219,7 @@ func tokenList() []jsToken {
 		},
 	}
 }
+
 func tokenizeJS(js string) []jsToken {
 	ret := []jsToken{}
 	tokens := tokenList()
@@ -263,13 +264,13 @@ func parseImports(tokens []jsToken, snipits []*jsSnipit, indexes [][]int) ([]*js
 	}
 
 	end := -1
-	for i < len(tokens) {
-		if tokens[i].tokenType == tokenTypeClose {
-			end = i
-			break
-		}
-		i++
-	}
+	// for i < len(tokens) {
+	// 	// if tokens[i].tokenType == tokenTypeClose {
+	// 	// 	end = i
+	// 	// 	break
+	// 	// }
+	// 	// i++
+	// }
 
 	if start > -1 && end > -1 {
 		add := jsSnipit{}

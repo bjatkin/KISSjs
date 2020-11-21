@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	newMain(os.Args)
+	return
 	args, err := parseArgs(os.Args)
 
 	if err != nil {
