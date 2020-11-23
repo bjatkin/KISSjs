@@ -1,4 +1,4 @@
-({ KISSimport: "../js/lazyLoad.js" })
+({ KISSimport: "../js/lazyLoad.js" });
 
 let fading = false;
 
@@ -60,7 +60,7 @@ document.getElementById("signup-link").addEventListener("click", () => {
     }));
 });
 
-({KISSimport: "../js/observe.js"})
+({KISSimport: "../js/observe.js"});
 
 var user = observe({
     username: "",
