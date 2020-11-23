@@ -2,237 +2,186 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"regexp"
-	"strings"
-
-	"golang.org/x/net/html"
 )
-
-type jsSnipit struct {
-	// imports   []*jsSnipit
-	js        string
-	src       string
-	depth     int  // TODO: i will likely need to use this again at some point
-	noCompile bool // When this is set the script is templated and searched for import statments
-	noBundle  bool // When this is set the script is bundled into the bundle.js file (each snipit is added only once reguarless of how often it appers)
-}
-
-func extractScripts(root *html.Node, path string) ([]*jsSnipit, error) {
-	ret := []*jsSnipit{}
-	for _, node := range listNodes(root) {
-		if node.Data == "script" {
-			src := getAttr(node, "src")
-			noCompile := getAttr(node, "nocompile")
-			noBundle := getAttr(node, "nobundle")
-			add := jsSnipit{
-				noCompile: noCompile != nil && noCompile.Val != "false",
-				noBundle:  noBundle != nil && noBundle.Val != "false",
-			}
-
-			if src != nil {
-				add.src = path + src.Val
-				if add.noBundle && add.noCompile {
-					add.src = src.Val
-				}
-			}
-
-			if src != nil && !add.noCompile {
-				script, err := ioutil.ReadFile(add.src)
-				if err != nil {
-					return ret, err
-				}
-				add.js = string(script)
-			}
-
-			if node.FirstChild != nil {
-				add.js = node.FirstChild.Data
-			}
-
-			ret = append(ret, &add)
-			fmt.Println("path", path)
-			fmt.Println("src", add.src)
-			fmt.Println(getPath(add.src))
-			snipits, err := resolveJS(&add, getPath(add.src), 1)
-			if err != nil {
-				return ret, err
-			}
-
-			ret = append(ret, snipits...)
-
-			node.Parent.RemoveChild(node)
-		}
-	}
-
-	ret = removeDuplicates(ret)
-	ret = sortSnipits(ret)
-
-	return ret, nil
-}
-
-// TODO: rewirte this to look at both the source code and the js source
-func removeDuplicates(snipits []*jsSnipit) []*jsSnipit {
-	ret := []*jsSnipit{}
-	keys := make(map[string]int)
-	for _, snipit := range snipits {
-		value, ok := keys[snipit.src]
-		if !ok || snipit.src == "" {
-			keys[snipit.src] = len(ret)
-			ret = append(ret, snipit)
-		} else {
-			if ret[value].depth < snipit.depth {
-				ret[value].depth = snipit.depth
-			}
-		}
-	}
-
-	return ret
-}
-
-func sortSnipits(snipits []*jsSnipit) []*jsSnipit {
-	ret := []*jsSnipit{}
-	max := 0
-	for _, snipit := range snipits {
-		if snipit.depth > max {
-			max = snipit.depth
-		}
-	}
-
-	for i := max; i >= 0; i-- {
-		for _, snipit := range snipits {
-			if snipit.depth == i {
-				ret = append(ret, snipit)
-			}
-		}
-	}
-
-	return ret
-}
-
-func resolveJS(snipit *jsSnipit, path string, depth int) ([]*jsSnipit, error) {
-	fmt.Println("Path", path, "src", snipit.src)
-	tokens := tokenizeJS(snipit.js)
-	snipits, indexes := parseImports(tokens, []*jsSnipit{}, [][]int{})
-	ret := []*jsSnipit{}
-
-	for _, snipit := range snipits {
-		snipit.depth = depth
-		ret = append(ret, snipit)
-	}
-
-	imports := []string{}
-	for _, index := range indexes {
-		imports = append(imports, snipit.js[index[0]:index[1]+2])
-	}
-
-	for _, snipit := range ret {
-		if snipit.noBundle && snipit.noCompile {
-			continue
-		}
-		src, err := ioutil.ReadFile(path + snipit.src)
-		if err != nil {
-			return nil, err
-		}
-		snipit.js = string(src)
-	}
-
-	for _, i := range imports {
-		snipit.js = strings.ReplaceAll(snipit.js, i, "")
-	}
-
-	for _, snipit := range snipits {
-		if !snipit.noCompile {
-			js, err := resolveJS(snipit, getPath(path+snipit.src), depth+1)
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, js...)
-		}
-	}
-
-	return ret, nil
-}
-
-type jsToken struct {
-	tokenType int
-	pattern   *regexp.Regexp
-	value     string
-	index     int
-}
 
 const (
-	tokenTypeOpen = iota
-	// tokenTypeClose
-	// tokenTypeKeyword
-	// tokenTypeValue
-	// tokenTypeWhiteSpace
-	// tokenTypeColon
-	// tokenTypeComma
-	// tokenTypeAny
+	tokenTypeOpenImport = iota
+	tokenTypeCloseImport
+	tokenTypeKissKeyword
+	tokenTypeKeyword
+	tokenTypeValue
+	tokenTypeOpenCloseString
+	tokenTypeEscapedOpenCloseString
+	tokenTypeWhiteSpace
+	tokenTypeColon
+	tokenTypeComma
+	tokenTypeSemiColon
+	tokenTypeCloseExpression
+	tokenTypeOpenExpression
+	tokenTypeDot
+	tokenTypeEqual
+	tokenTypeNewLine
+	tokenTypeAny
 )
 
-func tokenList() []jsToken {
-	return []jsToken{
-		jsToken{
-			tokenType: tokenTypeOpen,
-			pattern:   regexp.MustCompile(`^\({`),
-		},
-		// jsToken{
-		// 	tokenType: tokenTypeClose,
-		// 	pattern:   regexp.MustCompile(`^}\)`),
-		// },
-		jsToken{
-			tokenType: tokenTypeKeyword,
-			pattern:   regexp.MustCompile(`^KISSimport`),
-		},
-		jsToken{
-			tokenType: tokenTypeKeyword,
-			pattern:   regexp.MustCompile(`^nocompile`),
-		},
-		jsToken{
-			tokenType: tokenTypeKeyword,
-			pattern:   regexp.MustCompile(`^nobundle`),
-		},
-		jsToken{
-			tokenType: tokenTypeValue,
-			pattern:   regexp.MustCompile(`^(?:true|false)`),
-		},
-		jsToken{
-			tokenType: tokenTypeValue,
-			pattern:   regexp.MustCompile(`^['"][^'"]*['"]`),
-		},
-		jsToken{
-			tokenType: tokenTypeWhiteSpace,
-			pattern:   regexp.MustCompile(`^[ \t\r\n]+`),
-		},
-		jsToken{
-			tokenType: tokenTypeColon,
-			pattern:   regexp.MustCompile(`^:`),
-		},
-		jsToken{
-			tokenType: tokenTypeComma,
-			pattern:   regexp.MustCompile(`^,`),
-		},
-		jsToken{
-			tokenType: tokenTypeAny,
-			pattern:   regexp.MustCompile(`^.`),
-		},
-	}
+var tokenPatterns = []JSTokenPattern{
+	JSTokenPattern{
+		tokenType: tokenTypeOpenImport,
+		pattern:   regexp.MustCompile(`^\({`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeCloseImport,
+		pattern:   regexp.MustCompile(`^}\)`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKissKeyword,
+		pattern:   regexp.MustCompile(`^KISSimport`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKissKeyword,
+		pattern:   regexp.MustCompile(`^nocompile`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKissKeyword,
+		pattern:   regexp.MustCompile(`^nobundle`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^function {0,1}`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^var `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^let `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^yield `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^new `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^async {0,1}`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^await {0,1}`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^import {0,1}`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeEqual,
+		pattern:   regexp.MustCompile(`^=`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeValue,
+		pattern:   regexp.MustCompile(`^(?:true|false)`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeEscapedOpenCloseString,
+		pattern:   regexp.MustCompile(`^\\['"]`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeOpenCloseString,
+		pattern:   regexp.MustCompile(`^[\x60'"]`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeWhiteSpace,
+		pattern:   regexp.MustCompile(`^[ \t]+`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeNewLine,
+		pattern:   regexp.MustCompile(`^[\n\r]+`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeSemiColon,
+		pattern:   regexp.MustCompile(`^;`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeColon,
+		pattern:   regexp.MustCompile(`^:`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeComma,
+		pattern:   regexp.MustCompile(`^,`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeOpenExpression,
+		pattern:   regexp.MustCompile(`^[\(\[{]`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeCloseExpression,
+		pattern:   regexp.MustCompile(`^[\)\]}]`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeDot,
+		pattern:   regexp.MustCompile(`^\.`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeAny,
+		pattern:   regexp.MustCompile(`^.`),
+	},
 }
 
-func tokenizeJS(js string) []jsToken {
-	ret := []jsToken{}
-	tokens := tokenList()
+// JSTokenPattern matches a regex with a tokenType
+type JSTokenPattern struct {
+	tokenType int
+	pattern   *regexp.Regexp
+}
+
+// JSToken is a token type and value
+type JSToken struct {
+	tokenType int
+	value     string
+}
+
+// JSImport is a js import statment
+type JSImport struct {
+	src                 string
+	nobundle, nocompile bool
+}
+
+// JSLine is a line of js
+type JSLine struct {
+	value []JSToken
+}
+
+// JSScript is a parsed js file
+type JSScript struct {
+	imports []JSImport
+	lines   []JSLine
+}
+
+func (script JSScript) String() string {
+	ret := ""
+	for _, line := range script.lines {
+		for _, token := range line.value {
+			ret += token.value
+		}
+	}
+	return ret
+}
+
+func tokenizeJSScript(script string) []JSToken {
+	tokens := []JSToken{}
 	i := 0
-	for i < len(js) {
-		for _, token := range tokens {
-			index := token.pattern.FindIndex([]byte(js[i:]))
+	for i < len(script) {
+		for _, token := range tokenPatterns {
+			index := token.pattern.FindIndex([]byte(script[i:]))
 			if index != nil {
-				ret = append(ret,
-					jsToken{
+				tokens = append(tokens,
+					JSToken{
 						tokenType: token.tokenType,
-						value:     js[i : i+index[1]],
-						index:     i,
+						value:     script[i : i+index[1]],
 					},
 				)
 				i += index[1]
@@ -241,64 +190,176 @@ func tokenizeJS(js string) []jsToken {
 		}
 	}
 
-	return ret
-}
-
-func parseImports(tokens []jsToken, snipits []*jsSnipit, indexes [][]int) ([]*jsSnipit, [][]int) {
-	noSpace := []jsToken{}
-	for _, token := range tokens {
-		if token.tokenType != tokenTypeWhiteSpace {
-			noSpace = append(noSpace, token)
-		}
-	}
-	tokens = noSpace
-
-	i := 0
-	start := -1
+	// filter results
+	ret := []JSToken{}
+	i = 0
 	for i < len(tokens) {
-		if tokens[i].tokenType == tokenTypeOpen {
-			start = i
-			break
+		if tokens[i].tokenType == tokenTypeWhiteSpace {
+			i++
+			continue
 		}
+		if tokens[i].tokenType == tokenTypeOpenCloseString {
+			count, str := tokenizeJSString(tokens[i:])
+			ret = append(ret, str)
+			i += count
+			continue
+		}
+		ret = append(ret, tokens[i])
 		i++
 	}
 
-	end := -1
-	// for i < len(tokens) {
-	// 	// if tokens[i].tokenType == tokenTypeClose {
-	// 	// 	end = i
-	// 	// 	break
-	// 	// }
-	// 	// i++
-	// }
+	return ret
+}
 
-	if start > -1 && end > -1 {
-		add := jsSnipit{}
-		index := []int{tokens[start].index, tokens[end].index}
-		i = start
-		for i < end {
-			if i+3 < len(tokens) &&
-				tokens[i].tokenType == tokenTypeKeyword &&
-				tokens[i+1].tokenType == tokenTypeColon &&
-				tokens[i+2].tokenType == tokenTypeValue {
-				if tokens[i].value == "KISSimport" {
-					add.src = strings.Trim(tokens[i+2].value, "\"'")
-				}
-				if tokens[i].value == "nocompile" {
-					add.noCompile = tokens[i+2].value == "true"
-				}
-				if tokens[i].value == "nobundle" {
-					add.noBundle = tokens[i+2].value == "true"
-				}
-				if i+4 > len(tokens) ||
-					tokens[i+3].tokenType != tokenTypeComma {
-					break
-				}
-			}
-			i++
+func tokenizeJSString(script []JSToken) (int, JSToken) {
+	if script[0].tokenType != tokenTypeOpenCloseString {
+		return 0, JSToken{}
+	}
+	ret := JSToken{tokenType: tokenTypeValue, value: script[0].value}
+	i := 1
+	for i < len(script) {
+		tok := script[i].tokenType
+		ret.value += script[i].value
+		i++
+		if tok == tokenTypeOpenCloseString {
+			return i, ret
 		}
-		snipits, indexes = parseImports(tokens[end:], append(snipits, &add), append(indexes, index))
+	}
+	return 0, JSToken{}
+}
+
+func parseJSTokens(script []JSToken) (JSScript, error) {
+	ret := JSScript{}
+	i := 0
+	start := 0
+	for i < len(script) {
+		start = i
+		tok := script[i].tokenType
+		if tok == tokenTypeWhiteSpace {
+			i++
+			continue
+		}
+		count, jsImport := parseJSImportStatment(script[i:])
+		if count > 0 {
+			i += count
+			ret.imports = append(ret.imports, jsImport)
+			continue
+		}
+		count, line := parseJSLine(script[i:])
+		if count > 0 {
+			i += count
+			ret.lines = append(ret.lines, line)
+		}
+		if i == start {
+			return JSScript{}, fmt.Errorf("failed to parse js token, '%s'", script[i].value)
+		}
 	}
 
-	return snipits, indexes
+	return ret, nil
+}
+
+func parseJSLine(script []JSToken) (int, JSLine) {
+	ret := JSLine{}
+	i := 0
+	for script[i].tokenType == tokenTypeNewLine {
+		i++
+		if i >= len(script) {
+			return i, JSLine{}
+		}
+	}
+	for i < len(script) {
+		tok := script[i].tokenType
+		if tok == tokenTypeNewLine {
+			i++
+			break
+		}
+		if tok == tokenTypeSemiColon {
+			i++
+			break
+		}
+		ret.value = append(ret.value, script[i])
+		i++
+	}
+	if len(ret.value) == 0 {
+		return 0, ret
+	}
+	tok := ret.value[len(ret.value)-1].tokenType
+	switch tok {
+	case tokenTypeSemiColon:
+		return i, ret
+	case tokenTypeOpenExpression:
+		return i, ret
+	case tokenTypeCloseExpression:
+		return i, ret
+	case tokenTypeEqual:
+		return i, ret
+	case tokenTypeColon:
+		return i, ret
+	case tokenTypeComma:
+		return i, ret
+	case tokenTypeOpenImport:
+		return i, ret
+	default:
+		ret.value = append(ret.value, JSToken{tokenTypeSemiColon, ";"})
+		return i, ret
+	}
+}
+
+func parseJSImportStatment(script []JSToken) (int, JSImport) {
+	i := 0
+	for script[i].tokenType == tokenTypeNewLine {
+		i++
+		if i >= len(script) {
+			return 0, JSImport{}
+		}
+	}
+	if script[i].tokenType != tokenTypeOpenImport {
+		return 0, JSImport{}
+	}
+	ret := JSImport{}
+	expectedToken := tokenTypeKissKeyword
+	keyword := ""
+	i++
+	for i < len(script) {
+		tok := script[i].tokenType
+		if tok == tokenTypeWhiteSpace {
+			i++
+			continue
+		}
+		if tok == tokenTypeCloseImport {
+			i++
+			if script[i].tokenType != tokenTypeSemiColon {
+				break
+			}
+			i++
+			return i, ret
+		}
+
+		if tok != expectedToken {
+			break
+		}
+		switch tok {
+		case tokenTypeKissKeyword:
+			keyword = script[i].value
+			expectedToken = tokenTypeColon
+		case tokenTypeColon:
+			expectedToken = tokenTypeValue
+		case tokenTypeValue:
+			val := script[i].value
+			if keyword == "KISSimport" {
+				ret.src = val[1 : len(val)-1]
+			}
+			if keyword == "nobundle" {
+				ret.nobundle = (val == "true")
+			}
+			if keyword == "nocompile" {
+				ret.nocompile = (val == "true")
+			}
+			expectedToken = tokenTypeComma
+		case tokenTypeComma:
+			expectedToken = tokenTypeKissKeyword
+		}
+		i++
+	}
+	return 0, JSImport{}
 }
