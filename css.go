@@ -2,104 +2,76 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
-
-	"golang.org/x/net/html"
 )
 
-// Used
-type cssStyle struct {
-	key, val string
+// CSSStyle is a style propery and style value
+type CSSStyle struct {
+	Style, Value string
 }
 
-// Used
-type cssRule struct {
-	selector []string
-	styles   []cssStyle
+// CSSRule is a css selector and set of styles
+type CSSRule struct {
+	Selector []string
+	Styles   []CSSStyle
 }
 
-// Used
-func scopeCSS(component *html.Node) ([]*cssRule, error) {
-	scope := "KISS-" + generateScope(6)
-	style := findOne(component, "style")
-	if style == nil {
-		return []*cssRule{}, nil
+// AddClass adds a class to the css rule selector
+func (css *CSSRule) AddClass(class string) {
+	for i := 0; i < len(css.Selector); i++ {
+		if strings.Index(css.Selector[i], class) < 0 {
+			css.Selector[i] += "." + class
+		}
+	}
+}
+
+// String returns the string representation of the css rule
+func (css *CSSRule) String() string {
+	ret := strings.Join(css.Selector, " ")
+
+	ret += "{"
+	for _, style := range css.Styles {
+		ret += style.Style + ": " + style.Value + ";"
 	}
 
-	rules, err := cssFromNode(style.FirstChild)
-	if err != nil {
-		return []*cssRule{}, nil
-	}
+	return ret + "}"
+}
 
+func test() {
+	css := `
+	div {
+		color: #fff;
+		border: 1px solid black;
+	}	
+
+	.newclass {
+		test: "@this_is_a_test@";	
+		again: 100px;
+	}
+	`
+
+	rules, _ := ParseCSS(css)
 	for _, rule := range rules {
-		rule.addClass(scope)
+		fmt.Printf("rule: %#v\n", rule)
 	}
-	for _, node := range listNodes(component.FirstChild) {
-		addClass(node, scope)
-	}
-
-	return rules, nil
 }
 
-// Used
-func extractCSS(root *html.Node) ([]*cssRule, error) {
-
-	// Get all the import tags so we can find components
-	importTags, err := getImportTags(root)
-	if err != nil {
-		return nil, err
-	}
-
-	// scope all the component nodes
-	allStyles := []*cssRule{}
-	for _, tag := range importTags {
-		for _, node := range listNodes(root) {
-			if strings.ToLower(node.Data) == strings.ToLower(tag) {
-				styles, err := scopeCSS(node.FirstChild)
-				if err != nil {
-					return allStyles, err
-				}
-				allStyles = append(allStyles, styles...)
-				style := findOne(node, "style")
-				if style != nil {
-					style.Parent.RemoveChild(style)
-				}
-			}
-		}
-	}
-
-	// extract the head style
-	style := findOne(root, "style")
-	if style != nil {
-		styles, err := cssFromNode(style.FirstChild)
-		if err != nil {
-			return allStyles, err
-		}
-		allStyles = append(allStyles, styles...)
-		style.Parent.RemoveChild(style)
-	}
-
-	return allStyles, nil
-}
-
-// Used
-func cssFromNode(node *html.Node) ([]*cssRule, error) {
-	ret := []*cssRule{}
-	if node.Type != html.TextNode {
-		return ret, errors.New("only text nodes can be processed as css rules")
-	}
-	for _, rule := range strings.Split(node.Data, "}") {
+// ParseCSS converts a string of css into css rules
+func ParseCSS(css string) ([]*CSSRule, error) {
+	ret := []*CSSRule{}
+	for _, rule := range strings.Split(css, "}") {
 		rule = strings.TrimSpace(rule)
 		if len(rule) == 0 {
 			continue
 		}
-		css := &cssRule{}
+		add := &CSSRule{}
 		half := strings.Index(rule, "{")
 		if half < 0 {
-			return ret, errors.New("could not find style section in css rule, missing '{' or '}' character")
+			return nil, errors.New("could not find style section in css rule, missing '{' or '}' chaaracter")
 		}
 
-		css.selector = strings.Split(strings.TrimSpace(rule[:half]), " ")
+		add.Selector = strings.Split(strings.TrimSpace(rule[:half]), " ")
 		styles := strings.Split(strings.TrimSpace(rule[half+1:]), ";")
 
 		for _, style := range styles {
@@ -108,34 +80,13 @@ func cssFromNode(node *html.Node) ([]*cssRule, error) {
 			}
 			split := strings.Split(style, ":")
 			if len(split) != 2 {
-				return ret, errors.New("css style does not contain both a key and value. Expecting key and value split by ':'")
+				return nil, errors.New("css style does not contain both a key and value. Expecting key and value split by ':'")
 			}
-			css.styles = append(css.styles, cssStyle{key: strings.TrimSpace(split[0]), val: strings.TrimSpace(split[1])})
+			add.Styles = append(add.Styles, CSSStyle{Style: strings.TrimSpace(split[0]), Value: strings.TrimSpace(split[1])})
 		}
 
-		ret = append(ret, css)
+		ret = append(ret, add)
 	}
 
 	return ret, nil
-}
-
-// Used
-func (css *cssRule) addClass(class string) {
-	for i := 0; i < len(css.selector); i++ {
-		if strings.Index(css.selector[i], class) < 0 {
-			css.selector[i] += "." + class
-		}
-	}
-}
-
-// Used
-func (css *cssRule) String() string {
-	ret := strings.Join(css.selector, " ")
-
-	ret += "{\n"
-	for _, style := range css.styles {
-		ret += "\t" + style.key + ": " + style.val + ";\n"
-	}
-
-	return ret + "}"
 }
