@@ -1,71 +1,81 @@
 package main
 
-// TEST THIS PACKAGE
-
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"golang.org/x/net/html"
 )
 
-type kissNodeType int
+// NodeType is an identifyer for different node types
+type NodeType int
 
+// The different types of nodes
 const (
-	baseNode = kissNodeType(iota)
-	kissJsNode
-	kissCSSNode
-	kissComponentNode
+	TypeBaseNode = NodeType(iota)
+	TypeJSNode
+	TypeCSSNode
+	TypeImportNode
+	TypeParameterNode
+	TypeComponentNode
+	TypeRootComponentNode
 )
 
-type kissNode interface {
-	AppendChild(kissNode)
-	InsertBefore(kissNode, kissNode) error
-	Children() []kissNode
-	ListNodes() []kissNode
+// Node is a interface for all objects that can behave like html nodes
+type Node interface {
+	AppendChild(Node)
+	InsertBefore(Node, Node) error
+	Children() []Node
+	ListNodes() []Node
 	String() string
-	Parse(kissNodeContext) error
-	Type() kissNodeType
+	Parse(ParseNodeContext) error
 	Data() string
 	SetData(string)
 	Attrs() []*html.Attribute
 	SetAttrs([]*html.Attribute)
-	Parent() kissNode
-	SetParent(kissNode)
-	FirstChild() kissNode
-	SetFirstChild(kissNode)
-	PrevSibling() kissNode
-	SetPrevSibling(kissNode)
-	NextSibling() kissNode
-	SetNextSibling(kissNode)
+	Parent() Node
+	SetParent(Node)
+	FirstChild() Node
+	SetFirstChild(Node)
+	PrevSibling() Node
+	SetPrevSibling(Node)
+	NextSibling() Node
+	SetNextSibling(Node)
 }
 
-type kissNodeContext struct {
-	path           string
-	componentScope string
+// ParseNodeContext passes contextual infromation from parent to child nodes
+type ParseNodeContext struct {
+	path               string
+	componentScope     string
+	ImportTags         map[string]Node
+	SkipComponentCheck bool
 }
 
-type node struct {
-	parent, firstChild, prevSibling, nextSibling kissNode
+// BaseNode is the most basic node
+type BaseNode struct {
+	parent, firstChild, prevSibling, nextSibling Node
 	data                                         string
 	attr                                         []*html.Attribute
 }
 
-func newKissNode(data string) kissNode {
+// NewNode creates a new node
+func NewNode(data string) Node {
 	switch data {
 	case "script":
-		return &jsNode{node: node{data: data}}
+		return &JSNode{BaseNode: BaseNode{data: data}}
 	case "style":
-		return &cssNode{node: node{data: data}}
+		return &CSSNode{BaseNode: BaseNode{data: data}}
 	case "component":
-		return &importNode{node: node{data: data}}
+		return &ImportNode{BaseNode: BaseNode{data: data}}
 	default:
-		return &node{data: data}
+		return &BaseNode{data: data}
 	}
 }
 
-func htmlNodeToKissNode(node *html.Node) kissNode {
-	ret := newKissNode(node.Data)
+// ToKissNode converts an html node into a normal node
+func ToKissNode(node *html.Node) Node {
+	ret := NewNode(node.Data)
 	attrs := []*html.Attribute{}
 	for _, attr := range node.Attr {
 		attrs = append(attrs,
@@ -79,34 +89,46 @@ func htmlNodeToKissNode(node *html.Node) kissNode {
 	return ret
 }
 
-func (node *node) AppendChild(add kissNode) {
-	add.SetParent(node)
+// AppendChild adds a the new node as the last child of the node
+func (node *BaseNode) AppendChild(new Node) {
+	new.SetParent(node)
 
 	lastChild := node.firstChild
-	for lastChild.NextSibling() != nil {
-		lastChild = lastChild.NextSibling()
+	if lastChild != nil {
+		for lastChild.NextSibling() != nil {
+			lastChild = lastChild.NextSibling()
+		}
 	}
 
-	add.SetPrevSibling(lastChild)
-	add.SetNextSibling(nil)
+	new.SetPrevSibling(lastChild)
+	new.SetNextSibling(nil)
+
+	if lastChild != nil {
+		lastChild.SetNextSibling(new)
+		return
+	}
+	node.SetFirstChild(new)
 }
 
-func (node *node) InsertBefore(add, child kissNode) error {
+// InsertBefore adds the new node as a child directly before the specified child node
+// and error is thrown if child is not a direct child of the base node
+func (node *BaseNode) InsertBefore(new, child Node) error {
 	check := node.FirstChild()
 	for check != nil {
 		if check == child {
-			add.SetParent(node)
-			add.SetPrevSibling(check.PrevSibling())
-			add.SetNextSibling(check)
+			new.SetParent(node)
+			new.SetPrevSibling(check.PrevSibling())
+			new.SetNextSibling(check)
 			return nil
 		}
 	}
 	return fmt.Errorf("node %s is not a child of %s", child, node)
 }
 
-func (node *node) Children() []kissNode {
+// Children returns an array of all the base nodes direct children
+func (node *BaseNode) Children() []Node {
 	child := node.FirstChild()
-	ret := []kissNode{}
+	ret := []Node{}
 	for child != nil {
 		ret = append(ret, child)
 		child = child.NextSibling()
@@ -114,12 +136,13 @@ func (node *node) Children() []kissNode {
 	return ret
 }
 
-func (node *node) ListNodes() []kissNode {
+// ListNodes returns an array of all the base nodes decendents
+func (node *BaseNode) ListNodes() []Node {
 	return itterateNodes(node, true)
 }
 
-func itterateNodes(node kissNode, root bool) []kissNode {
-	ret := []kissNode{}
+func itterateNodes(node Node, root bool) []Node {
+	ret := []Node{node}
 
 	if node.FirstChild() != nil {
 		ret = append(ret, itterateNodes(node.FirstChild(), false)...)
@@ -132,9 +155,10 @@ func itterateNodes(node kissNode, root bool) []kissNode {
 	return ret
 }
 
-func kissDetach(node kissNode) {
+// Detach removes the node from it's parents and siblings and then patches the hole left behind
+func Detach(node Node) Node {
 	if node.Parent() != nil {
-		if node.PrevSibling() == nil && node.NextSibling() != nil {
+		if node.PrevSibling() == nil {
 			node.Parent().SetFirstChild(node.NextSibling())
 		}
 		node.SetParent(nil)
@@ -147,18 +171,21 @@ func kissDetach(node kissNode) {
 	}
 	node.SetNextSibling(nil)
 	node.SetPrevSibling(nil)
+
+	return node
 }
 
-func kissClone(node *node) kissNode {
-	return kissCloneDeep(node, true)
+// Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
+func Clone(node Node) Node {
+	return cloneDeep(node, true)
 }
 
-func kissCloneDeep(node kissNode, root bool) kissNode {
+func cloneDeep(node Node, root bool) Node {
 	if node == nil {
 		return nil
 	}
 
-	ret := newKissNode(node.Data())
+	ret := NewNode(node.Data())
 	attrs := []*html.Attribute{}
 	for _, attr := range node.Attrs() {
 		attrs = append(attrs,
@@ -170,15 +197,27 @@ func kissCloneDeep(node kissNode, root bool) kissNode {
 	}
 
 	ret.SetAttrs(attrs)
-	ret.SetFirstChild(kissCloneDeep(node.FirstChild(), false))
+	ret.SetFirstChild(cloneDeep(node.FirstChild(), false))
 	if !root {
-		ret.SetNextSibling(kissCloneDeep(node.NextSibling(), false))
+		ret.SetNextSibling(cloneDeep(node.NextSibling(), false))
 	}
 
 	return ret
 }
 
-func (node *node) Parse(ctx kissNodeContext) error {
+// Parse builds the nodes structure and then calls parse on all it's child nodes
+func (node *BaseNode) Parse(ctx ParseNodeContext) error {
+	if !ctx.SkipComponentCheck {
+		for tag, root := range ctx.ImportTags {
+			if strings.ToLower(node.Data()) == tag {
+				compNode := ToComponentNode(node)
+				compNode.AppendChild(Clone(root))
+				return compNode.Parse(ctx)
+			}
+		}
+	}
+	ctx.SkipComponentCheck = false
+
 	for _, child := range node.Children() {
 		err := child.Parse(ctx)
 		if err != nil {
@@ -188,88 +227,103 @@ func (node *node) Parse(ctx kissNodeContext) error {
 	return nil
 }
 
-func (node *node) Data() string {
+// Data returns the nodes data field
+func (node *BaseNode) Data() string {
 	return node.data
 }
 
-func (node *node) Type() kissNodeType {
-	return baseNode
-}
-
-func (node *node) SetData(data string) {
+// SetData is used to set the nodes data field
+func (node *BaseNode) SetData(data string) {
 	node.data = data
 }
 
-func (node *node) Attrs() []*html.Attribute {
+// Attrs returns the attributes of the node
+func (node *BaseNode) Attrs() []*html.Attribute {
 	return node.attr
 }
 
-func (node *node) SetAttrs(attrs []*html.Attribute) {
+// SetAttrs sets the attributes of the node
+func (node *BaseNode) SetAttrs(attrs []*html.Attribute) {
 	node.attr = attrs
 }
 
-func (node *node) Parent() kissNode {
+// Parent returns the parent of the node
+func (node *BaseNode) Parent() Node {
 	return node.parent
 }
 
-func (node *node) SetParent(parent kissNode) {
+// SetParent sets the new parent of the node
+func (node *BaseNode) SetParent(parent Node) {
 	node.parent = parent
 }
 
-func (node *node) FirstChild() kissNode {
+// FirstChild returns the first child of the node
+func (node *BaseNode) FirstChild() Node {
 	return node.firstChild
 }
 
-func (node *node) SetFirstChild(child kissNode) {
+// SetFirstChild sets the new first child of the node
+func (node *BaseNode) SetFirstChild(child Node) {
 	node.firstChild = child
 }
 
-func (node *node) PrevSibling() kissNode {
+// PrevSibling returns the previous sibling of the node
+func (node *BaseNode) PrevSibling() Node {
 	return node.prevSibling
 }
 
-func (node *node) SetPrevSibling(sibling kissNode) {
+// SetPrevSibling sets the new previous sibling of the node
+func (node *BaseNode) SetPrevSibling(sibling Node) {
 	node.prevSibling = sibling
 }
 
-func (node *node) NextSibling() kissNode {
+// NextSibling returns the next sibling of the node
+func (node *BaseNode) NextSibling() Node {
 	return node.nextSibling
 }
 
-func (node *node) SetNextSibling(sibling kissNode) {
+// SetNextSibling sets the new next sibling of the node
+func (node *BaseNode) SetNextSibling(sibling Node) {
 	node.nextSibling = sibling
 }
 
-func (node *node) String() string {
+// String returns the nodes string representation
+func (node *BaseNode) String() string {
 	ret := "<" + node.data
 	for _, attr := range node.attr {
-		ret += " " + attr.Namespace + ":" + attr.Key + "=" + attr.Val
+		ret += " "
+		if len(attr.Namespace) > 0 {
+			ret += attr.Namespace + ":"
+		}
+		ret += attr.Key + "=\"" + attr.Val + "\""
 	}
 	ret += ">"
 	if node.firstChild != nil {
 		ret += "..."
 	}
-	ret += "</" + node.data + ">"
+	ret += "</>"
 	return ret
 }
 
-type jsNode struct {
-	node
+// JSNode is a node for any script data
+type JSNode struct {
+	BaseNode
 	src                 string
-	script              kissJSScript
+	script              JSScript
 	nobundle, nocompile bool
 }
 
-func (node *jsNode) parse(ctx kissNodeContext) error {
-	hasSrc, srcAttr := getKissAttr(&node.node, "src")
+// Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
+func (node *JSNode) Parse(ctx ParseNodeContext) error {
+	hasSrc, srcAttr := GetAttr(&node.BaseNode, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
 	}
 
-	hasNoCompile, _ := getKissAttr(&node.node, "nocompile")
+	hasNoCompile, _ := GetAttr(&node.BaseNode, "nocompile")
 	node.nocompile = hasNoCompile
 
-	hasNoBundle, _ := getKissAttr(&node.node, "nobundle")
+	hasNoBundle, _ := GetAttr(&node.BaseNode, "nobundle")
 	node.nobundle = hasNoBundle
 	if hasNoBundle && !hasSrc {
 		return fmt.Errorf("error at node %s, can not specify nobundle without a src attribute", node)
@@ -280,13 +334,13 @@ func (node *jsNode) parse(ctx kissNodeContext) error {
 	}
 
 	script := ""
-	if node.node.firstChild != nil {
+	if node.BaseNode.firstChild != nil {
 		script = node.firstChild.Data()
-		kissDetach(node.firstChild)
+		Detach(node.firstChild)
 	}
 	if hasSrc {
-		node.src = srcAttr.Val
-		scriptBytes, err := ioutil.ReadFile(ctx.path + node.src)
+		node.src = ctx.path + srcAttr.Val
+		scriptBytes, err := ioutil.ReadFile(node.src)
 		script = string(scriptBytes)
 		if err != nil {
 			return fmt.Errorf("error at node %s, %s", node.String(), err)
@@ -302,7 +356,7 @@ func (node *jsNode) parse(ctx kissNodeContext) error {
 
 	// Add children
 	for _, i := range node.script.imports {
-		newNode := newKissNode("script")
+		newNode := NewNode("script")
 		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.src}}
 		if i.nobundle {
 			attrs = append(attrs, &html.Attribute{Key: "nobundle"})
@@ -314,48 +368,158 @@ func (node *jsNode) parse(ctx kissNodeContext) error {
 		node.AppendChild(newNode)
 	}
 
-	node.node.Parse(ctx)
+	ctx.path = getPath(node.src)
+	ctx.SkipComponentCheck = true
+	node.BaseNode.Parse(ctx)
 	return nil
 }
 
-type cssNode struct {
-	node
-	selector []string
-	styles   []cssStyle
-	scope    string
+// CSSNode is a node for all style data
+type CSSNode struct {
+	BaseNode
+	Rules []*CSSRule
+	Scope string
 }
 
-// Question, we need a scope here? Should we add it to the parse function call?
-// Should we reach up into parents in the parse command? Does that make sense?
-func (node *cssNode) Parse(ctx kissNodeContext) error {
+// Parse extracts all css rules and applies the correct scope to them
+func (node *CSSNode) Parse(ctx ParseNodeContext) error {
+	node.Scope = ctx.componentScope
+	// extract the css rules
+	css := ""
+	if node.FirstChild() != nil {
+		css = node.FirstChild().Data()
+		Detach(node.FirstChild())
+	}
+
+	rules, err := ParseCSS(css)
+	if err != nil {
+		return err
+	}
+
+	node.Rules = rules
+
+	// apply the correct scope
+	if ctx.componentScope != "" {
+		for _, rule := range node.Rules {
+			rule.AddClass(ctx.componentScope)
+		}
+	}
+
 	return nil
 }
 
-type importNode struct {
-	node
-	src string
+// ImportNode is a node for all component definition
+type ImportNode struct {
+	BaseNode
+	Tag           string
+	Src           string
+	ComponentRoot Node
 }
 
-type parameter struct {
-	key, val string
+// Parse validates the import node and builds all the related context nodes
+func (node *ImportNode) Parse(ctx ParseNodeContext) error {
+	hasTag, tagAttr := GetAttr(&node.BaseNode, "tag")
+	if !hasTag {
+		return fmt.Errorf("error at ndoe %s, import node must have a tag attribute", node)
+	}
+	hasSrc, srcAttr := GetAttr(&node.BaseNode, "src")
+	if hasSrc && node.ComponentRoot != nil {
+		return fmt.Errorf("error at node %s, can not have both a src value and a child node", node)
+	}
+
+	if hasSrc {
+		node.Src = ctx.path + srcAttr.Val
+		children, err := parseComponentFile(node.Src)
+		if err != nil {
+			return fmt.Errorf("error at node %s, there was an error parsing coponent src", err)
+		}
+
+		root := NewNode("root")
+		for _, child := range children {
+			root.AppendChild(child)
+		}
+		node.ComponentRoot = root
+	}
+
+	err := node.ComponentRoot.Parse(ctx)
+	if err != nil {
+		return err
+	}
+
+	ctx.path = getPath(node.Src)
+	ctx.ImportTags[strings.ToLower(tagAttr.Val)] = node.ComponentRoot
+	ctx.SkipComponentCheck = true
+
+	return node.BaseNode.Parse(ctx)
 }
 
-type componentNode struct {
-	node
-	parameters          []parameter
-	nobundleID          string
-	nobundle, nocompile bool
+// Parameter is a simple key value struct
+type Parameter struct {
+	Key, Val string
 }
 
-type parameterNode struct {
-	node
+// ComponentNode is a node for all components that match imports nodes
+type ComponentNode struct {
+	BaseNode
+	NobundleID          string
+	NoBundle, NoCompile bool
 }
 
-type rootComponentNode struct {
-	node
+// ToComponentNode converts any kiss node into a component type node
+// Warning! this function should never be used on sibling or parent nodes,
+// only use this function on child nodes or siblings child nodes
+func ToComponentNode(node Node) *ComponentNode {
+	ret := &ComponentNode{}
+	ret.SetParent(node.Parent())
+	if node.Parent() != nil && node.PrevSibling() == nil {
+		node.Parent().SetFirstChild(ret)
+	}
+	ret.SetFirstChild(node.FirstChild())
+	for _, child := range node.Children() {
+		child.SetParent(ret)
+	}
+	ret.SetPrevSibling(node.PrevSibling())
+	if node.PrevSibling() != nil {
+		node.PrevSibling().SetNextSibling(ret)
+	}
+	ret.SetNextSibling(node.NextSibling())
+	if node.NextSibling() != nil {
+		node.NextSibling().SetPrevSibling(ret)
+	}
+
+	ret.SetData(node.Data())
+	ret.SetAttrs(node.Attrs())
+	return ret
 }
 
-func getKissAttr(node *node, key string) (bool, *html.Attribute) {
+// Parse uses the it's class to add a root component and then calls parse on all it's children
+func (node *ComponentNode) Parse(ctx ParseNodeContext) error {
+	fmt.Printf("THIS IS A COMPONENT %s\n", node)
+	ctx.SkipComponentCheck = true
+	node.BaseNode.Parse(ctx)
+	return nil
+}
+
+// ParameterNode is a node for component parameteres (e.g. all child nodes except the rootComponentNode)
+type ParameterNode struct {
+	BaseNode
+}
+
+func (node *ParameterNode) Parse(ctx ParseNodeContext) error {
+	return nil
+}
+
+// RootComponentNode is the container for the instance nodes of the parent component node
+type RootComponentNode struct {
+	BaseNode
+}
+
+func (node *RootComponentNode) Parse(ctx ParseNodeContext) error {
+	return nil
+}
+
+// GetAttr returns the html attribute with the matching key if it exsists, it also returns true if the attribute was found and false otherwise
+func GetAttr(node *BaseNode, key string) (bool, *html.Attribute) {
 	for _, attr := range node.attr {
 		if attr.Key == key {
 			return true, attr
