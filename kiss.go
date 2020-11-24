@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -33,9 +35,7 @@ func main() {
 		return
 	}
 
-	for _, node := range root.ListNodes() {
-		fmt.Println(node)
-	}
+	fmt.Println(root.Render())
 }
 
 func parseEntryFile(file string) (Node, error) {
@@ -44,13 +44,22 @@ func parseEntryFile(file string) (Node, error) {
 		return nil, err
 	}
 
-	root, err := html.Parse(data)
+	htmlRoot, err := html.Parse(data)
 	if err != nil {
 		return nil, err
 	}
+	if htmlRoot.FirstChild.Type == html.DoctypeNode {
+		htmlRoot.FirstChild = htmlRoot.FirstChild.NextSibling
+		htmlRoot.FirstChild.PrevSibling = nil
+	}
 
-	conv := convertNodeTree(nil, root)
-	return hoistImports(conv), nil
+	root := convertNodeTree(nil, htmlRoot)
+	root = removeWhiteSpace(root)
+	root = hoistImports(root)
+	root = convertComponents(root)
+	root = fragmentNodes(root)
+
+	return root, nil
 }
 
 func parseComponentFile(file string) ([]Node, error) {
@@ -77,10 +86,13 @@ func parseComponentFile(file string) ([]Node, error) {
 	htmlRoot[0].RemoveChild(body)
 
 	root := convertNodeTree(nil, htmlRoot[0])
-	hoist := hoistImports(root)
+	root = removeWhiteSpace(root)
+	root = hoistImports(root)
+	root = convertComponents(root)
+	root = fragmentNodes(root)
 
 	ret := []Node{}
-	for _, node := range hoist.Children() {
+	for _, node := range root.Children() {
 		ret = append(ret, node)
 	}
 
@@ -106,11 +118,12 @@ func convertNodeTree(parent Node, node *html.Node) Node {
 
 func hoistImports(root Node) Node {
 	imports := []Node{}
-	for _, node := range root.ListNodes() {
+	for _, node := range root.Descendants() {
 		if strings.ToLower(node.Data()) == "component" {
 			children := node.Children()
 			if len(children) > 0 {
 				root := NewNode("root")
+				root.SetVisible(false)
 				for _, child := range node.Children() {
 					root.AppendChild(Detach(child))
 				}
@@ -129,6 +142,78 @@ func hoistImports(root Node) Node {
 	}
 
 	return root
+}
+
+func convertComponents(root Node) Node {
+	tags := []string{}
+	for _, node := range root.Descendants() {
+		if strings.ToLower(node.Data()) == "component" {
+			_, tagAttr := GetAttr(node, "tag")
+			tags = append(tags, tagAttr.Val)
+		}
+		for _, tag := range tags {
+			if strings.ToLower(node.Data()) == tag {
+				ToComponentNode(node)
+			}
+		}
+	}
+
+	return root
+}
+
+func removeWhiteSpace(root Node) Node {
+	for _, node := range root.Descendants() {
+		if len(strings.TrimSpace(node.Data())) == 0 {
+			Detach(node)
+		}
+	}
+	return root
+}
+
+func fragmentNodes(root Node) Node {
+	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
+	for _, node := range root.Descendants() {
+		matches := re.FindAllIndex([]byte(node.Data()), -1)
+		if len(matches) == 0 {
+			continue
+		}
+		newData := []string{}
+		prevIndex := 0
+		for _, match := range matches {
+			newData = append(newData, node.Data()[prevIndex:match[0]])
+			newData = append(newData, node.Data()[match[0]:match[1]])
+			prevIndex = match[1]
+		}
+		newData = append(newData, node.Data()[prevIndex:])
+		node.SetData("")
+		node.SetVisible(false)
+		for _, data := range newData {
+			new := NewNode(data)
+			node.AppendChild(new)
+		}
+	}
+
+	return root
+}
+
+// File represents a simple file
+type File struct {
+	Name    string
+	Content string
+}
+
+// Render takes a node and renders the full tree into an array of files
+func Render(outputDir string, root Node) error {
+	files := root.Render()
+	err := ioutil.WriteFile(outputDir+".html", []byte(files), 0644)
+	return err
+
+	// for _, file := range files {
+	// 	err := ioutil.WriteFile(outputDir+file.Name, []byte(file.Content), 0644)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 }
 
 // func writeCSS(file string, styles []*CSSRule) (*html.Node, error) {
