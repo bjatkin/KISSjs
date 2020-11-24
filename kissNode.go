@@ -8,28 +8,18 @@ import (
 	"golang.org/x/net/html"
 )
 
-// NodeType is an identifyer for different node types
-type NodeType int
-
-// The different types of nodes
-const (
-	TypeBaseNode = NodeType(iota)
-	TypeJSNode
-	TypeCSSNode
-	TypeImportNode
-	TypeParameterNode
-	TypeComponentNode
-	TypeRootComponentNode
-)
-
 // Node is a interface for all objects that can behave like html nodes
 type Node interface {
 	AppendChild(Node)
 	InsertBefore(Node, Node) error
 	Children() []Node
-	ListNodes() []Node
+	Descendants() []Node
 	String() string
 	Parse(ParseNodeContext) error
+	Instance(InstanceNodeContext)
+	Render() string
+	Visible() bool
+	SetVisible(bool)
 	Data() string
 	SetData(string)
 	Attrs() []*html.Attribute
@@ -44,17 +34,21 @@ type Node interface {
 	SetNextSibling(Node)
 }
 
-// ParseNodeContext passes contextual infromation from parent to child nodes
+// ParseNodeContext passes contextual infromation from parent to child nodes durring parsing
 type ParseNodeContext struct {
-	path               string
-	componentScope     string
-	ImportTags         map[string]Node
-	SkipComponentCheck bool
+	path           string
+	componentScope string
+	ImportTags     map[string]Node
+}
+
+// InstanceNodeContext passes contextual information from parent to child nodes durring instancing
+type InstanceNodeContext struct {
 }
 
 // BaseNode is the most basic node
 type BaseNode struct {
 	parent, firstChild, prevSibling, nextSibling Node
+	visible                                      bool
 	data                                         string
 	attr                                         []*html.Attribute
 }
@@ -63,13 +57,13 @@ type BaseNode struct {
 func NewNode(data string) Node {
 	switch data {
 	case "script":
-		return &JSNode{BaseNode: BaseNode{data: data}}
+		return &JSNode{BaseNode: BaseNode{data: data, visible: true}}
 	case "style":
-		return &CSSNode{BaseNode: BaseNode{data: data}}
+		return &CSSNode{BaseNode: BaseNode{data: data, visible: true}}
 	case "component":
-		return &ImportNode{BaseNode: BaseNode{data: data}}
+		return &ImportNode{BaseNode: BaseNode{data: data, visible: false}}
 	default:
-		return &BaseNode{data: data}
+		return &BaseNode{data: data, visible: true}
 	}
 }
 
@@ -136,20 +130,21 @@ func (node *BaseNode) Children() []Node {
 	return ret
 }
 
-// ListNodes returns an array of all the base nodes decendents
-func (node *BaseNode) ListNodes() []Node {
-	return itterateNodes(node, true)
+// Descendants returns an array of all the base nodes decendents
+func (node *BaseNode) Descendants() []Node {
+	return listDescendants(node, true)
 }
 
-func itterateNodes(node Node, root bool) []Node {
+// listDescendants
+func listDescendants(node Node, root bool) []Node {
 	ret := []Node{node}
 
 	if node.FirstChild() != nil {
-		ret = append(ret, itterateNodes(node.FirstChild(), false)...)
+		ret = append(ret, listDescendants(node.FirstChild(), false)...)
 	}
 
 	if node.NextSibling() != nil && !root {
-		ret = append(ret, itterateNodes(node.NextSibling(), false)...)
+		ret = append(ret, listDescendants(node.NextSibling(), false)...)
 	}
 
 	return ret
@@ -207,17 +202,9 @@ func cloneDeep(node Node, root bool) Node {
 
 // Parse builds the nodes structure and then calls parse on all it's child nodes
 func (node *BaseNode) Parse(ctx ParseNodeContext) error {
-	if !ctx.SkipComponentCheck {
-		for tag, root := range ctx.ImportTags {
-			if strings.ToLower(node.Data()) == tag {
-				compNode := ToComponentNode(node)
-				compNode.AppendChild(Clone(root))
-				return compNode.Parse(ctx)
-			}
-		}
+	if len(node.Data()) == 0 {
+		node.SetVisible(false)
 	}
-	ctx.SkipComponentCheck = false
-
 	for _, child := range node.Children() {
 		err := child.Parse(ctx)
 		if err != nil {
@@ -225,6 +212,48 @@ func (node *BaseNode) Parse(ctx ParseNodeContext) error {
 		}
 	}
 	return nil
+}
+
+// Instance takes parameters from the node context and replaces template parameteres
+func (node *BaseNode) Instance(ctx InstanceNodeContext) {
+	for _, child := range node.Children() {
+		child.Instance(ctx)
+	}
+}
+
+// Render converts a node into a textual representation
+func (node *BaseNode) Render() string {
+	ret := ""
+	if node.visible {
+		ret = "<" + node.Data()
+		for _, attr := range node.attr {
+			ret += " "
+			if len(attr.Namespace) > 0 {
+				ret += attr.Namespace + ":"
+			}
+			ret += attr.Key + "=\"" + attr.Val + "\""
+		}
+		ret += ">"
+	}
+
+	for _, child := range node.Children() {
+		ret += child.Render()
+	}
+
+	if node.visible {
+		ret += "</" + node.Data() + ">"
+	}
+	return ret
+}
+
+// Visible indicates if a node will be rendered or not
+func (node *BaseNode) Visible() bool {
+	return node.visible
+}
+
+// SetVisible sets the visibility of the node
+func (node *BaseNode) SetVisible(set bool) {
+	node.visible = set
 }
 
 // Data returns the nodes data field
@@ -308,23 +337,23 @@ func (node *BaseNode) String() string {
 // JSNode is a node for any script data
 type JSNode struct {
 	BaseNode
-	src                 string
-	script              JSScript
-	nobundle, nocompile bool
+	Src                 string
+	Script              JSScript
+	NoBundle, NoCompile bool
 }
 
 // Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
 func (node *JSNode) Parse(ctx ParseNodeContext) error {
-	hasSrc, srcAttr := GetAttr(&node.BaseNode, "src")
+	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
 	}
 
-	hasNoCompile, _ := GetAttr(&node.BaseNode, "nocompile")
-	node.nocompile = hasNoCompile
+	hasNoCompile, _ := GetAttr(node, "nocompile")
+	node.NoCompile = hasNoCompile
 
-	hasNoBundle, _ := GetAttr(&node.BaseNode, "nobundle")
-	node.nobundle = hasNoBundle
+	hasNoBundle, _ := GetAttr(node, "nobundle")
+	node.NoBundle = hasNoBundle
 	if hasNoBundle && !hasSrc {
 		return fmt.Errorf("error at node %s, can not specify nobundle without a src attribute", node)
 	}
@@ -339,8 +368,8 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 		Detach(node.firstChild)
 	}
 	if hasSrc {
-		node.src = ctx.path + srcAttr.Val
-		scriptBytes, err := ioutil.ReadFile(node.src)
+		node.Src = ctx.path + srcAttr.Val
+		scriptBytes, err := ioutil.ReadFile(node.Src)
 		script = string(scriptBytes)
 		if err != nil {
 			return fmt.Errorf("error at node %s, %s", node.String(), err)
@@ -349,13 +378,13 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 
 	tokens := tokenizeJSScript(script)
 	var err error
-	node.script, err = parseJSTokens(tokens)
+	node.Script, err = parseJSTokens(tokens)
 	if err != nil {
 		return fmt.Errorf("error at node %s, %s", node.String(), err)
 	}
 
 	// Add children
-	for _, i := range node.script.imports {
+	for _, i := range node.Script.imports {
 		newNode := NewNode("script")
 		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.src}}
 		if i.nobundle {
@@ -368,10 +397,12 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 		node.AppendChild(newNode)
 	}
 
-	ctx.path = getPath(node.src)
-	ctx.SkipComponentCheck = true
-	node.BaseNode.Parse(ctx)
-	return nil
+	ctx.path = getPath(node.Src)
+	return node.BaseNode.Parse(ctx)
+}
+
+func (node *JSNode) Render() string {
+	return "<script src=\"" + node.Src + "\"></script>"
 }
 
 // CSSNode is a node for all style data
@@ -418,11 +449,11 @@ type ImportNode struct {
 
 // Parse validates the import node and builds all the related context nodes
 func (node *ImportNode) Parse(ctx ParseNodeContext) error {
-	hasTag, tagAttr := GetAttr(&node.BaseNode, "tag")
+	hasTag, tagAttr := GetAttr(node, "tag")
 	if !hasTag {
 		return fmt.Errorf("error at ndoe %s, import node must have a tag attribute", node)
 	}
-	hasSrc, srcAttr := GetAttr(&node.BaseNode, "src")
+	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.ComponentRoot != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child node", node)
 	}
@@ -435,6 +466,7 @@ func (node *ImportNode) Parse(ctx ParseNodeContext) error {
 		}
 
 		root := NewNode("root")
+		root.SetVisible(false)
 		for _, child := range children {
 			root.AppendChild(child)
 		}
@@ -448,7 +480,6 @@ func (node *ImportNode) Parse(ctx ParseNodeContext) error {
 
 	ctx.path = getPath(node.Src)
 	ctx.ImportTags[strings.ToLower(tagAttr.Val)] = node.ComponentRoot
-	ctx.SkipComponentCheck = true
 
 	return node.BaseNode.Parse(ctx)
 }
@@ -466,8 +497,10 @@ type ComponentNode struct {
 }
 
 // ToComponentNode converts any kiss node into a component type node
-// Warning! this function should never be used on sibling or parent nodes,
-// only use this function on child nodes or siblings child nodes
+// Warning! this function should not be used in a Parse, or Inline function
+// if this function is used in a Parse or Inline function it
+// should never be used on sibling or parent nodes,
+// only on child nodes or a sibling's child nodes
 func ToComponentNode(node Node) *ComponentNode {
 	ret := &ComponentNode{}
 	ret.SetParent(node.Parent())
@@ -489,38 +522,23 @@ func ToComponentNode(node Node) *ComponentNode {
 
 	ret.SetData(node.Data())
 	ret.SetAttrs(node.Attrs())
+	ret.SetVisible(false)
 	return ret
 }
 
 // Parse uses the it's class to add a root component and then calls parse on all it's children
 func (node *ComponentNode) Parse(ctx ParseNodeContext) error {
-	fmt.Printf("THIS IS A COMPONENT %s\n", node)
-	ctx.SkipComponentCheck = true
-	node.BaseNode.Parse(ctx)
-	return nil
-}
-
-// ParameterNode is a node for component parameteres (e.g. all child nodes except the rootComponentNode)
-type ParameterNode struct {
-	BaseNode
-}
-
-func (node *ParameterNode) Parse(ctx ParseNodeContext) error {
-	return nil
-}
-
-// RootComponentNode is the container for the instance nodes of the parent component node
-type RootComponentNode struct {
-	BaseNode
-}
-
-func (node *RootComponentNode) Parse(ctx ParseNodeContext) error {
-	return nil
+	for tag, root := range ctx.ImportTags {
+		if strings.ToLower(node.Data()) == tag {
+			node.AppendChild(Clone(root))
+		}
+	}
+	return node.BaseNode.Parse(ctx)
 }
 
 // GetAttr returns the html attribute with the matching key if it exsists, it also returns true if the attribute was found and false otherwise
-func GetAttr(node *BaseNode, key string) (bool, *html.Attribute) {
-	for _, attr := range node.attr {
+func GetAttr(node Node, key string) (bool, *html.Attribute) {
+	for _, attr := range node.Attrs() {
 		if attr.Key == key {
 			return true, attr
 		}
