@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"strings"
 )
 
 type kissArgs struct {
@@ -50,7 +49,7 @@ func parseArgs(args []string) (kissArgs, error) {
 
 	ret := kissArgs{
 		entry:  args[1],
-		output: strings.Split(args[1], ".")[0] + "_compiled",
+		output: getPath(args[1]) + "dist",
 	}
 	for i, arg := range args {
 		if arg == "-o" {
