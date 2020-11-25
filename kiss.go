@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -35,7 +34,11 @@ func main() {
 		return
 	}
 
-	fmt.Println(root.Render())
+	err = Render(args.output, root)
+	if err != nil {
+		fmt.Printf("There was an error writing the output files, %s", err)
+		return
+	}
 }
 
 func parseEntryFile(file string) (Node, error) {
@@ -196,91 +199,84 @@ func fragmentNodes(root Node) Node {
 	return root
 }
 
+const (
+	JSFileType = iota
+	HTMLFileType
+	CSSFileType
+)
+
 // File represents a simple file
 type File struct {
 	Name    string
 	Content string
+	Type    int
+}
+
+func (file *File) WriteFile(dir string) error {
+	ext := ".html"
+	if file.Type == JSFileType {
+		ext = ".js"
+	}
+	if file.Type == CSSFileType {
+		ext = ".css"
+	}
+
+	f, err := os.Create(dir + "/" + file.Name + ext)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write([]byte(file.Content))
+
+	return err
 }
 
 // Render takes a node and renders the full tree into an array of files
 func Render(outputDir string, root Node) error {
-	files := root.Render()
-	err := ioutil.WriteFile(outputDir+".html", []byte(files), 0644)
-	return err
+	var head, body Node
+	for _, desc := range root.Descendants() {
+		if desc.Data() == "head" {
+			head = desc
+		}
+		if desc.Data() == "body" {
+			body = desc
+		}
+	}
+	head.AppendChild(NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: "bundle.css"}))
+	body.AppendChild(NewNode("script", BaseType, &html.Attribute{Key: "src", Val: "bundle.js"}))
 
-	// for _, file := range files {
-	// 	err := ioutil.WriteFile(outputDir+file.Name, []byte(file.Content), 0644)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	html, otherFiles := root.Render(&File{
+		Type: HTMLFileType,
+		Name: "index",
+	})
+
+	i := 0
+	for i < len(otherFiles) {
+		base := otherFiles[i]
+		j := i + 1
+		for j < len(otherFiles) {
+			other := otherFiles[j]
+			if base.Name == other.Name &&
+				base.Type == other.Type {
+				base.Content += other.Content
+				l := len(otherFiles) - 1
+				otherFiles[j] = otherFiles[l]
+				otherFiles = otherFiles[:l]
+				continue
+			}
+			j++
+		}
+		i++
+	}
+
+	for _, file := range otherFiles {
+		err := file.WriteFile(outputDir)
+		if err != nil {
+			return err
+		}
+	}
+	return html.WriteFile(outputDir)
 }
-
-// func writeCSS(file string, styles []*CSSRule) (*html.Node, error) {
-// 	if len(styles) == 0 {
-// 		return nil, nil
-// 	}
-
-// 	cssFile, err := os.Create(file)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	cssData := ""
-// 	for _, style := range styles {
-// 		cssData += style.String() + "\n"
-// 	}
-// 	_, err = cssFile.Write([]byte(cssData))
-
-// 	styleNode := newNode("link",
-// 		html.ElementNode,
-// 		html.Attribute{Key: "rel", Val: "stylesheet"},
-// 		html.Attribute{Key: "href", Val: removePath(file)},
-// 	)
-
-// 	return styleNode, err
-// }
-
-// func writeJS(file string, scripts []*jsSnipit) ([]*html.Node, error) {
-// 	if len(scripts) == 0 {
-// 		return nil, nil
-// 	}
-// 	jsFile, err := os.Create(file)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	nodes := []*html.Node{}
-// 	jsScript := ""
-// 	for _, script := range scripts {
-// 		if script.noBundle && script.src != "" {
-// 			nodes = append(nodes,
-// 				newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: script.src}),
-// 			)
-// 			continue
-// 		}
-// 		if script.js == "" {
-// 			continue
-// 		}
-// 		jsScript += "{" + script.js + "}\n"
-// 	}
-
-// 	nodes = append(nodes,
-// 		newNode("script", html.ElementNode, html.Attribute{Key: "src", Val: removePath(file)}),
-// 	)
-
-// 	_, err = jsFile.Write([]byte(jsScript))
-// 	return nodes, err
-// }
-
-// func writeHTML(file string, root *html.Node) error {
-// 	htmlFile, err := os.Create(file)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return html.Render(htmlFile, root)
-// }
 
 func getPath(fileName string) string {
 	last := strings.LastIndex(fileName, "/")
