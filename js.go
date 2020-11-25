@@ -19,6 +19,8 @@ const (
 	tokenTypeSemiColon
 	tokenTypeCloseExpression
 	tokenTypeOpenExpression
+	tokenTypeOpenObject
+	tokenTypeCloseObject
 	tokenTypeDot
 	tokenTypeEqual
 	tokenTypeNewLine
@@ -65,6 +67,10 @@ var tokenPatterns = []JSTokenPattern{
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
 		pattern:   regexp.MustCompile(`^new `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^return `),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
@@ -115,12 +121,20 @@ var tokenPatterns = []JSTokenPattern{
 		pattern:   regexp.MustCompile(`^,`),
 	},
 	JSTokenPattern{
+		tokenType: tokenTypeOpenObject,
+		pattern:   regexp.MustCompile(`^{`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeCloseObject,
+		pattern:   regexp.MustCompile(`^}`),
+	},
+	JSTokenPattern{
 		tokenType: tokenTypeOpenExpression,
-		pattern:   regexp.MustCompile(`^[\(\[{]`),
+		pattern:   regexp.MustCompile(`^[\(\[]`),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeCloseExpression,
-		pattern:   regexp.MustCompile(`^[\)\]}]`),
+		pattern:   regexp.MustCompile(`^[\)\]]`),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeDot,
@@ -169,6 +183,28 @@ func (script JSScript) String() string {
 		}
 	}
 	return ret
+}
+
+func (script JSScript) clone() JSScript {
+	clone := JSScript{}
+	for _, imp := range script.imports {
+		clone.imports = append(clone.imports,
+			JSImport{
+				src:       imp.src,
+				nobundle:  imp.nobundle,
+				nocompile: imp.nocompile,
+			},
+		)
+	}
+	for _, line := range script.lines {
+		newLine := JSLine{}
+		for _, tok := range line.value {
+			newLine.value = append(newLine.value, JSToken{tokenType: tok.tokenType, value: tok.value})
+		}
+		clone.lines = append(clone.lines, newLine)
+	}
+
+	return clone
 }
 
 func tokenizeJSScript(script string) []JSToken {
@@ -255,6 +291,8 @@ func parseJSTokens(script []JSToken) (JSScript, error) {
 		}
 	}
 
+	ret.lines = addSemiColons(ret.lines)
+
 	return ret, nil
 }
 
@@ -283,26 +321,53 @@ func parseJSLine(script []JSToken) (int, JSLine) {
 	if len(ret.value) == 0 {
 		return 0, ret
 	}
-	tok := ret.value[len(ret.value)-1].tokenType
-	switch tok {
-	case tokenTypeSemiColon:
-		return i, ret
-	case tokenTypeOpenExpression:
-		return i, ret
-	case tokenTypeCloseExpression:
-		return i, ret
-	case tokenTypeEqual:
-		return i, ret
-	case tokenTypeColon:
-		return i, ret
-	case tokenTypeComma:
-		return i, ret
-	case tokenTypeOpenImport:
-		return i, ret
-	default:
-		ret.value = append(ret.value, JSToken{tokenTypeSemiColon, ";"})
-		return i, ret
+	return i, ret
+}
+
+func addSemiColons(lines []JSLine) []JSLine {
+	for i := 0; i < len(lines); i++ {
+		line := &lines[i]
+		if len(line.value) == 0 {
+			continue
+		}
+		preTok := line.value[len(line.value)-1].tokenType
+		postTok := tokenTypeAny
+		if i+1 < len(lines) && len(lines[i+1].value) > 0 {
+			postTok = lines[i+1].value[0].tokenType
+		}
+
+		add := true
+		switch preTok {
+		case tokenTypeSemiColon:
+			add = false
+		case tokenTypeOpenExpression:
+			add = false
+		case tokenTypeOpenObject:
+			add = false
+		case tokenTypeCloseObject:
+			add = false
+		case tokenTypeDot:
+			add = false
+		case tokenTypeEqual:
+			add = false
+		case tokenTypeColon:
+			add = false
+		case tokenTypeComma:
+			add = false
+		case tokenTypeOpenImport:
+			add = false
+		}
+
+		if preTok == tokenTypeCloseObject && postTok == tokenTypeKeyword {
+			add = true
+		}
+
+		if add {
+			line.value = append(line.value, JSToken{tokenTypeSemiColon, ";"})
+		}
 	}
+
+	return lines
 }
 
 func parseJSImportStatment(script []JSToken) (int, JSImport) {
