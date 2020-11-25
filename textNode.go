@@ -1,17 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
 // TextNode contains text that does not appear in an xml tag
 type TextNode struct {
 	BaseNode
-}
-
-// Type returnes TextType
-func (node *TextNode) Type() NodeType {
-	return TextType
 }
 
 // Instance replaces props in a node with params
@@ -28,7 +24,8 @@ func (node *TextNode) Instance(ctx NodeContext) error {
 	paramNodes, ok := ctx.Parameters[data]
 	if ok {
 		for _, paramNode := range paramNodes {
-			node.AppendChild(Clone(paramNode))
+			// node.AppendChild(Clone(paramNode))
+			node.AppendChild(paramNode.Clone())
 		}
 
 		// Set these all to visible as the component node may have hidden the originals
@@ -42,15 +39,18 @@ func (node *TextNode) Instance(ctx NodeContext) error {
 }
 
 // Render returns the text on the data
-func (node *TextNode) Render() string {
-	ret := ""
+func (node *TextNode) Render(file *File) (*File, []*File) {
+	fmt.Println("TEXT RENDER:", node)
 	if node.Visible() {
-		ret += node.Data()
+		file.Content += node.Data()
 	}
 
+	var ret []*File
 	for _, children := range node.Children() {
-		ret += children.Render()
+		mainFile, files := children.Render(file)
+		file.Content += mainFile.Content
+		ret = append(ret, files...)
 	}
 
-	return ret
+	return file, ret
 }
