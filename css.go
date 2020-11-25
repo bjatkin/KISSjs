@@ -17,6 +17,23 @@ type CSSRule struct {
 	Styles   []CSSStyle
 }
 
+func (css *CSSRule) clone() *CSSRule {
+	clone := &CSSRule{}
+	for _, sel := range css.Selector {
+		clone.Selector = append(clone.Selector, sel)
+	}
+	for _, style := range css.Styles {
+		clone.Styles = append(clone.Styles,
+			CSSStyle{
+				Style: style.Style,
+				Value: style.Value,
+			},
+		)
+	}
+
+	return clone
+}
+
 // AddClass adds a class to the css rule selector
 func (css *CSSRule) AddClass(class string) {
 	for i := 0; i < len(css.Selector); i++ {
@@ -32,7 +49,7 @@ func (css *CSSRule) String() string {
 
 	ret += "{"
 	for _, style := range css.Styles {
-		ret += style.Style + ": " + style.Value + ";"
+		ret += style.Style + ":" + style.Value + ";"
 	}
 
 	return ret + "}"
