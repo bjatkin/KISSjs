@@ -25,9 +25,9 @@ func main() {
 		return
 	}
 
-	ctx := ParseNodeContext{
+	ctx := NodeContext{
 		path:       getPath(args.entry),
-		ImportTags: make(map[string]Node),
+		Parameters: make(map[string][]Node),
 	}
 	err = root.Parse(ctx)
 	if err != nil {
@@ -54,10 +54,11 @@ func parseEntryFile(file string) (Node, error) {
 	}
 
 	root := convertNodeTree(nil, htmlRoot)
+	root.SetVisible(false)
+	root = fragmentNodes(root)
 	root = removeWhiteSpace(root)
 	root = hoistImports(root)
 	root = convertComponents(root)
-	root = fragmentNodes(root)
 
 	return root, nil
 }
@@ -87,9 +88,9 @@ func parseComponentFile(file string) ([]Node, error) {
 
 	root := convertNodeTree(nil, htmlRoot[0])
 	root = removeWhiteSpace(root)
+	root = fragmentNodes(root)
 	root = hoistImports(root)
 	root = convertComponents(root)
-	root = fragmentNodes(root)
 
 	ret := []Node{}
 	for _, node := range root.Children() {
@@ -122,7 +123,7 @@ func hoistImports(root Node) Node {
 		if strings.ToLower(node.Data()) == "component" {
 			children := node.Children()
 			if len(children) > 0 {
-				root := NewNode("root")
+				root := NewNode("root", BaseType)
 				root.SetVisible(false)
 				for _, child := range node.Children() {
 					root.AppendChild(Detach(child))
@@ -152,7 +153,7 @@ func convertComponents(root Node) Node {
 			tags = append(tags, tagAttr.Val)
 		}
 		for _, tag := range tags {
-			if strings.ToLower(node.Data()) == tag {
+			if strings.ToLower(node.Data()) == strings.ToLower(tag) {
 				ToComponentNode(node)
 			}
 		}
@@ -185,10 +186,9 @@ func fragmentNodes(root Node) Node {
 			prevIndex = match[1]
 		}
 		newData = append(newData, node.Data()[prevIndex:])
-		node.SetData("")
 		node.SetVisible(false)
 		for _, data := range newData {
-			new := NewNode(data)
+			new := NewNode(data, TextType)
 			node.AppendChild(new)
 		}
 	}
@@ -314,19 +314,16 @@ func getImportNodes(root *html.Node) ([]*html.Node, error) {
 	importNodes := []*html.Node{}
 	for _, node := range listNodes(root) {
 		if node.Data == "component" {
-			root := getAttr(node, "root")
-			if root == nil || root.Val != "true" {
-				add := true
-				for _, iNode := range importNodes {
-					iTag := getAttr(iNode, "tag")
-					tag := getAttr(node, "tag")
-					if tag != nil && iTag.Val == tag.Val {
-						add = false
-					}
+			add := true
+			for _, iNode := range importNodes {
+				iTag := getAttr(iNode, "tag")
+				tag := getAttr(node, "tag")
+				if tag != nil && iTag.Val == tag.Val {
+					add = false
 				}
-				if add {
-					importNodes = append(importNodes, node)
-				}
+			}
+			if add {
+				importNodes = append(importNodes, node)
 			}
 		}
 	}
@@ -367,26 +364,3 @@ func getComponentNodes(root *html.Node) ([]*html.Node, error) {
 	}
 	return componentNodes, nil
 }
-
-// The proper structure for this using XML semantics is
-// <component tag="hello" src="world.html">
-//      <hello></hello> <-- this would get instanced
-// </component>
-// <hello></hello> <-- this would not
-
-// This is not how I'm doing things, this would be an obnoxious way to build things
-
-// SOLUTION 1| Process all the imports and components first
-//      Plus| This is a super simple method that could be easily implemented
-//      Minus| seems like it would still be messy and bug prone, also makes the system more complex
-// SOLUTION 2| make children method an itterator/ generator
-//      Plus| makes it simpler to modify the tree and still have everything work
-//      Minus| might be tricky to implement correctly/ bug free
-//      Minus| requires a reset method in addition to children which complicates the API
-// SOLUTION 3| Try to get imports and components set up in the conversion step
-//      Plus| simple and could match the desired structure as a pre-processing step
-//      Plus| you can pass imports as part of a NodeContext
-//      Minus| does not solve the problem of dynamically changing decendents
-
-// I don't like solution 1
-// maybe SOLUTION 3
