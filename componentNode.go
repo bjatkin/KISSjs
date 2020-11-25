@@ -1,13 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
 // ComponentNode is a node for all components that match imports nodes
 type ComponentNode struct {
 	BaseNode
-	NobundleID          string
+	NoBundleID          string
 	NoBundle, NoCompile bool
 }
 
@@ -41,11 +42,6 @@ func ToComponentNode(node Node) *ComponentNode {
 	return ret
 }
 
-// Type returnes ComponentType
-func (node *ComponentNode) Type() NodeType {
-	return ComponentType
-}
-
 // Parse uses the it's class to add a root component and then calls parse on all it's children
 func (node *ComponentNode) Parse(ctx NodeContext) error {
 	err := node.BaseNode.Parse(ctx)
@@ -69,14 +65,36 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 	var root Node
 	for _, tag := range ctx.ImportTags {
 		if strings.ToLower(node.Data()) == tag.tag {
-
-			root = Clone(tag.root)
+			root = tag.root.Clone()
+			root.SetVisible(false)
+			for _, desc := range root.Descendants() {
+				err := desc.Instance(ctx)
+				if err != nil {
+					return fmt.Errorf("error at node %s, could not copy data from class into component %s", node, err)
+				}
+			}
 			node.AppendChild(root)
 
 			ctx.path = tag.path
-			return root.Parse(ctx)
+			break
 		}
 	}
 
 	return nil
+}
+
+func (node *ComponentNode) Clone() Node {
+	clone := ComponentNode{
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+	}
+
+	for _, child := range node.Children() {
+		clone.AppendChild(child.Clone())
+	}
+
+	clone.NoBundleID = node.NoBundleID
+	clone.NoBundle = node.NoBundle
+	clone.NoCompile = node.NoCompile
+
+	return &clone
 }
