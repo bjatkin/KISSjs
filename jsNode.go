@@ -15,16 +15,14 @@ type JSNode struct {
 	NoBundle, NoCompile bool
 }
 
-// Type returns JSType
-func (node *JSNode) Type() NodeType {
-	return JSType
-}
-
 // Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
 func (node *JSNode) Parse(ctx NodeContext) error {
 	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
+	}
+	if !hasSrc && node.firstChild == nil {
+		return fmt.Errorf("error at node %s, node has neither a src element nore any child text, empty script nodes nod allowed", node)
 	}
 
 	hasNoCompile, _ := GetAttr(node, "nocompile")
@@ -79,9 +77,44 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	return node.BaseNode.Parse(ctx)
 }
 
-func (node *JSNode) Render() string {
-	if node.Src == "" {
-		return ""
+func (node *JSNode) Render(file *File) (*File, []*File) {
+	fmt.Println("JS RENDER:", node)
+	var ret []*File
+
+	passFile := file
+	if file.Type != JSFileType {
+		passFile = &File{
+			Name: "bundle",
+			Type: JSFileType,
+		}
+		ret = append(ret, passFile)
 	}
-	return "<script src=\"" + node.Src + "\"></script>"
+
+	content := "{" + node.Script.String() + "}"
+	for _, child := range node.Children() {
+		mainFile, files := child.Render(passFile)
+		content = mainFile.Content + content
+		ret = append(ret, files...)
+	}
+
+	passFile.Content = content + passFile.Content
+
+	return file, ret
+}
+
+func (node *JSNode) Clone() Node {
+	clone := JSNode{
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+	}
+
+	for _, child := range node.Children() {
+		clone.AppendChild(child.Clone())
+	}
+
+	clone.Src = node.Src
+	clone.NoBundle = node.NoBundle
+	clone.NoCompile = node.NoCompile
+	clone.Script = node.Script.clone()
+
+	return &clone
 }
