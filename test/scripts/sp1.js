@@ -1,3 +1,3 @@
-({KISSimport: "sp2.js"})
+({KISSimport: "sp2.js"});
 
 MSGone = "this is one page"
