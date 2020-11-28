@@ -24,6 +24,7 @@ const (
 	tokenTypeDot
 	tokenTypeEqual
 	tokenTypeNewLine
+	tokenTypeTemplate
 	tokenTypeAny
 )
 
@@ -141,6 +142,10 @@ var tokenPatterns = []JSTokenPattern{
 		pattern:   regexp.MustCompile(`^\.`),
 	},
 	JSTokenPattern{
+		tokenType: tokenTypeTemplate,
+		pattern:   regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`),
+	},
+	JSTokenPattern{
 		tokenType: tokenTypeAny,
 		pattern:   regexp.MustCompile(`^.`),
 	},
@@ -196,6 +201,7 @@ func (script JSScript) clone() JSScript {
 			},
 		)
 	}
+
 	for _, line := range script.lines {
 		newLine := JSLine{}
 		for _, tok := range line.value {
