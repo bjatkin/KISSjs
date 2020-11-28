@@ -17,8 +17,8 @@ type ComponentNode struct {
 // if this function is used in a Parse or Inline function it
 // should never be used on sibling or parent nodes,
 // only on child nodes or a sibling's child nodes
-func ToComponentNode(node Node) *ComponentNode {
-	ret := &ComponentNode{}
+func ToComponentNode(node Node) Node {
+	ret := NewNode(node.Data(), ComponentType, node.Attrs()...)
 	ret.SetParent(node.Parent())
 	if node.Parent() != nil && node.PrevSibling() == nil {
 		node.Parent().SetFirstChild(ret)
@@ -36,8 +36,6 @@ func ToComponentNode(node Node) *ComponentNode {
 		node.NextSibling().SetPrevSibling(ret)
 	}
 
-	ret.SetData(node.Data())
-	ret.SetAttrs(node.Attrs())
 	ret.SetVisible(false)
 	return ret
 }
@@ -48,18 +46,17 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 	if err != nil {
 		return err
 	}
+
+	ctx.componentScope = "KISS-" + generateScope(6)
 	ctx.Parameters = make(map[string][]Node)
 
-	for _, desc := range node.Descendants() {
-		desc.SetVisible(false)
-	}
-
+	paramDesc := node.Descendants()
 	for _, attr := range node.Attrs() {
-		ctx.Parameters["{"+strings.ToLower(attr.Key)+"}"] = []Node{NewNode(attr.Val, TextType)}
+		ctx.Parameters[strings.ToLower(attr.Key)] = []Node{NewNode(attr.Val, TextType)}
 	}
 
 	for _, child := range node.Children() {
-		ctx.Parameters["{"+strings.ToLower(child.Data())+"}"] = child.Children()
+		ctx.Parameters[strings.ToLower(child.Data())] = child.Children()
 	}
 
 	var root Node
@@ -80,12 +77,16 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 		}
 	}
 
+	for _, desc := range paramDesc {
+		desc.SetVisible(false)
+	}
+
 	return nil
 }
 
 func (node *ComponentNode) Clone() Node {
 	clone := ComponentNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
 	for _, child := range node.Children() {
