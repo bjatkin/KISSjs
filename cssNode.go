@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+import "strings"
 
 // CSSNode is a node for all style data
 type CSSNode struct {
@@ -36,30 +36,51 @@ func (node *CSSNode) Parse(ctx NodeContext) error {
 	return nil
 }
 
-func (node *CSSNode) Render(file *File) (*File, []*File) {
-	fmt.Println("CSS RENDER:", node)
-	content := ""
+func (node *CSSNode) Instance(ctx NodeContext) error {
+	for i := 0; i < len(node.Rules); i++ {
+		rule := node.Rules[i]
+		rule.AddClass(ctx.componentScope)
+		for j := 0; j < len(rule.Styles); j++ {
+			style := &rule.Styles[j]
+			for k := 0; k < len(style.Value); k++ {
+				val := &style.Value
+				for name, param := range ctx.Parameters {
+					*val = strings.ReplaceAll(
+						*val,
+						"\"@"+name+"@\"",
+						param[0].Data(),
+					)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+	ctx.files = ctx.files.Merge(&File{
+		Name:    "bundle",
+		Type:    CSSFileType,
+		Entries: []Node{node},
+	})
+	Detach(node)
+
+	return ctx
+}
+
+func (node *CSSNode) Render() string {
+	ret := ""
+
 	for _, rule := range node.Rules {
-		content += rule.String()
+		ret += rule.String()
 	}
 
-	ret := []*File{}
-	if file.Type == CSSFileType {
-		file.Content += content
-	} else {
-		ret = append(ret, &File{
-			Type:    CSSFileType,
-			Name:    "bundle",
-			Content: content,
-		})
-	}
-
-	return file, ret
+	return ret
 }
 
 func (node *CSSNode) Clone() Node {
 	clone := CSSNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
 	for _, child := range node.Children() {

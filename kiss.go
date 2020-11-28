@@ -18,6 +18,18 @@ func main() {
 		return
 	}
 
+	globals := make(map[string][]Node)
+	if args.globals != "" {
+		comps, err := parseComponentFile(args.globals)
+		if err != nil {
+			fmt.Printf("Unable to parse the global args file %s: %s\n", args.globals, err)
+			return
+		}
+		for _, comp := range comps {
+			globals[strings.ToLower(comp.Data())] = comp.Children()
+		}
+	}
+
 	root, err := parseEntryFile(args.entry)
 	if err != nil {
 		fmt.Printf("Unable to parse entry file %s: %s\n", args.entry, err)
@@ -26,7 +38,7 @@ func main() {
 
 	ctx := NodeContext{
 		path:       getPath(args.entry),
-		Parameters: make(map[string][]Node),
+		Parameters: globals,
 	}
 	err = root.Parse(ctx)
 	if err != nil {
@@ -177,21 +189,28 @@ func removeWhiteSpace(root Node) Node {
 func fragmentNodes(root Node) Node {
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
 	for _, node := range root.Descendants() {
-		matches := re.FindAllIndex([]byte(node.Data()), -1)
+		data := strings.TrimSpace(node.Data())
+		matches := re.FindAllIndex([]byte(data), -1)
 		if len(matches) == 0 {
+			continue
+		}
+		if len(matches) == 1 && (matches[0][1]-matches[0][0] == len(data)) {
 			continue
 		}
 		newData := []string{}
 		prevIndex := 0
 		for _, match := range matches {
-			newData = append(newData, node.Data()[prevIndex:match[0]])
-			newData = append(newData, node.Data()[match[0]:match[1]])
+			newData = append(newData, data[prevIndex:match[0]])
+			newData = append(newData, data[match[0]:match[1]])
 			prevIndex = match[1]
 		}
-		newData = append(newData, node.Data()[prevIndex:])
+		newData = append(newData, data[prevIndex:])
 		node.SetVisible(false)
-		for _, data := range newData {
-			new := NewNode(data, TextType)
+		for _, ndata := range newData {
+			if len(strings.TrimSpace(ndata)) == 0 {
+				continue
+			}
+			new := NewNode(ndata, TextType)
 			node.AppendChild(new)
 		}
 	}
@@ -199,6 +218,7 @@ func fragmentNodes(root Node) Node {
 	return root
 }
 
+// The various file types supported by the system
 const (
 	JSFileType = iota
 	HTMLFileType
@@ -208,8 +228,22 @@ const (
 // File represents a simple file
 type File struct {
 	Name    string
-	Content string
+	Entries []Node
 	Type    int
+}
+
+type FileList []*File
+
+func (files FileList) Merge(add *File) FileList {
+	for _, file := range files {
+		if file.Name == add.Name &&
+			file.Type == add.Type {
+			file.Entries = append(file.Entries, add.Entries...)
+			return files
+		}
+	}
+
+	return append(files, add)
 }
 
 func (file *File) WriteFile(dir string) error {
@@ -226,7 +260,11 @@ func (file *File) WriteFile(dir string) error {
 		return err
 	}
 
-	_, err = f.Write([]byte(file.Content))
+	content := ""
+	for _, node := range file.Entries {
+		content += node.Render()
+	}
+	_, err = f.Write([]byte(content))
 
 	return err
 }
@@ -242,40 +280,41 @@ func Render(outputDir string, root Node) error {
 			body = desc
 		}
 	}
-	head.AppendChild(NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: "bundle.css"}))
-	body.AppendChild(NewNode("script", BaseType, &html.Attribute{Key: "src", Val: "bundle.js"}))
 
-	html, otherFiles := root.Render(&File{
-		Type: HTMLFileType,
-		Name: "index",
-	})
-
-	i := 0
-	for i < len(otherFiles) {
-		base := otherFiles[i]
-		j := i + 1
-		for j < len(otherFiles) {
-			other := otherFiles[j]
-			if base.Name == other.Name &&
-				base.Type == other.Type {
-				base.Content += other.Content
-				l := len(otherFiles) - 1
-				otherFiles[j] = otherFiles[l]
-				otherFiles = otherFiles[:l]
-				continue
-			}
-			j++
-		}
-		i++
+	if head == nil || body == nil {
+		return fmt.Errorf("Missing head or body node")
 	}
 
-	for _, file := range otherFiles {
+	ctx := RenderNodeContext{
+		files: []*File{
+			&File{
+				Name:    "index",
+				Type:    HTMLFileType,
+				Entries: []Node{root},
+			},
+		},
+	}
+
+	ctx = root.FindEntry(ctx)
+	for _, entry := range ctx.files {
+		if entry.Type == CSSFileType {
+			head.AppendChild(
+				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: entry.Name + ".css"}))
+		}
+		if entry.Type == JSFileType {
+			body.AppendChild(
+				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: entry.Name + ".js"}))
+
+		}
+	}
+
+	for _, file := range ctx.files {
 		err := file.WriteFile(outputDir)
 		if err != nil {
 			return err
 		}
 	}
-	return html.WriteFile(outputDir)
+	return nil
 }
 
 func getPath(fileName string) string {

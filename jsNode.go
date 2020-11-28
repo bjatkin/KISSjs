@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -59,6 +60,11 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	if err != nil {
 		return fmt.Errorf("error at node %s, %s", node, err)
 	}
+	node.Instance(ctx)
+	if strings.Index(node.Script.String(), "Biggest") > 0 {
+		fmt.Println(node.Script.String())
+
+	}
 
 	// Add children
 	for _, i := range node.Script.imports {
@@ -77,34 +83,51 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	return node.BaseNode.Parse(ctx)
 }
 
-func (node *JSNode) Render(file *File) (*File, []*File) {
-	fmt.Println("JS RENDER:", node)
-	var ret []*File
-
-	passFile := file
-	if file.Type != JSFileType {
-		passFile = &File{
-			Name: "bundle",
-			Type: JSFileType,
+func (node *JSNode) Instance(ctx NodeContext) error {
+	for i := 0; i < len(node.Script.lines); i++ {
+		line := &node.Script.lines[i]
+		for j := 0; j < len(line.value); j++ {
+			tok := &line.value[j]
+			for name, param := range ctx.Parameters {
+				tok.value = strings.ReplaceAll(tok.value, "$"+name+"$", param[0].Data())
+			}
 		}
-		ret = append(ret, passFile)
+	}
+	return nil
+}
+
+func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+	if ctx.callerType != JSType {
+		ctx.files = ctx.files.Merge(&File{
+			Name:    "bundle",
+			Type:    JSFileType,
+			Entries: []Node{node},
+		})
+		Detach(node)
 	}
 
-	content := "{" + node.Script.String() + "}"
+	ctx.callerType = JSType
+	for _, node := range node.Children() {
+		ctx = node.FindEntry(ctx)
+	}
+
+	return ctx
+}
+
+func (node *JSNode) Render() string {
+	ret := "{" + node.Script.String() + "}"
+
 	for _, child := range node.Children() {
-		mainFile, files := child.Render(passFile)
-		content = mainFile.Content + content
-		ret = append(ret, files...)
+		script := child.Render()
+		ret = script + ret
 	}
 
-	passFile.Content = content + passFile.Content
-
-	return file, ret
+	return ret
 }
 
 func (node *JSNode) Clone() Node {
 	clone := JSNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
 	for _, child := range node.Children() {

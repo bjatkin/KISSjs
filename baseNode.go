@@ -65,7 +65,8 @@ type Node interface {
 	String() string
 	Parse(NodeContext) error
 	Instance(NodeContext) error
-	Render(*File) (*File, []*File)
+	Render() string
+	FindEntry(RenderNodeContext) RenderNodeContext
 	Type() NodeType
 	Clone() Node
 	Visible() bool
@@ -94,6 +95,11 @@ type NodeContext struct {
 	componentScope string
 	ImportTags     []ImportTag
 	Parameters     map[string][]Node
+}
+
+type RenderNodeContext struct {
+	callerType NodeType
+	files      FileList
 }
 
 // ImportTag represents an import tag
@@ -138,7 +144,18 @@ type BaseNode struct {
 
 // NewNode creates a new node
 func NewNode(data string, nType NodeType, attr ...*html.Attribute) Node {
-	base := BaseNode{data: data, attr: attr, visible: true, nType: nType}
+	newAttr := []*html.Attribute{}
+	for _, old := range attr {
+		newAttr = append(newAttr,
+			&html.Attribute{
+				Namespace: old.Namespace,
+				Key:       old.Key,
+				Val:       old.Val,
+			},
+		)
+	}
+
+	base := BaseNode{data: data, attr: newAttr, visible: true, nType: nType}
 
 	switch nType {
 	case JSType:
@@ -268,6 +285,7 @@ func Detach(node Node) Node {
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *BaseNode) Clone() Node {
 	clone := NewNode(node.data, node.nType, node.attr...)
+	clone.SetVisible(node.Visible())
 
 	for _, child := range node.Children() {
 		clone.AppendChild(child.Clone())
@@ -293,11 +311,23 @@ func (node *BaseNode) Parse(ctx NodeContext) error {
 
 // Instance takes parameters from the node context and replaces template parameteres
 func (node *BaseNode) Instance(ctx NodeContext) error {
+	added := false
+	for _, attr := range node.Attrs() {
+		if attr.Key == "class" {
+			attr.Val += " " + ctx.componentScope
+			added = true
+		}
+	}
+
+	if !added {
+		node.SetAttrs(append(node.Attrs(), &html.Attribute{Key: "class", Val: ctx.componentScope}))
+	}
+
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
 	for _, attr := range node.Attrs() {
 		matches := re.FindAll([]byte(attr.Val), -1)
 		for _, match := range matches {
-			node, ok := ctx.Parameters[string(match)]
+			node, ok := ctx.Parameters[string(match[1:len(match)-1])]
 			if ok {
 				if len(node) != 1 || node[0].Type() != TextType {
 					return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
@@ -306,38 +336,44 @@ func (node *BaseNode) Instance(ctx NodeContext) error {
 			}
 		}
 	}
+
 	return nil
 }
 
 // Render converts a node into a textual representation
-func (node *BaseNode) Render(file *File) (*File, []*File) {
-	fmt.Println("BASE RENDER: ", node)
+func (node *BaseNode) Render() string {
+	ret := ""
 	if node.visible {
-		file.Content += "<" + node.Data()
+		ret += "<" + node.Data()
 		for _, attr := range node.attr {
 			if len(attr.Val) == 0 {
 				continue
 			}
-			file.Content += " "
+			ret += " "
 			if len(attr.Namespace) > 0 {
-				file.Content += attr.Namespace + ":"
+				ret += attr.Namespace + ":"
 			}
-			file.Content += attr.Key + "=\"" + attr.Val + "\""
+			ret += attr.Key + "=\"" + attr.Val + "\""
 		}
-		file.Content += ">"
+		ret += ">"
 	}
 
-	var ret []*File
 	for _, child := range node.Children() {
-		mainFile, files := child.Render(file)
-		file = mainFile
-		ret = append(ret, files...)
+		ret += child.Render()
 	}
 
 	if node.visible {
-		file.Content += "</" + node.Data() + ">"
+		ret += "</" + node.Data() + ">"
 	}
-	return file, ret
+	return ret
+}
+
+func (node *BaseNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+	for _, child := range node.Children() {
+		ctx.callerType = BaseType
+		ctx = child.FindEntry(ctx)
+	}
+	return ctx
 }
 
 // String returns the nodes string representation

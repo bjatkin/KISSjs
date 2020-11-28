@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -21,16 +20,10 @@ func (node *TextNode) Instance(ctx NodeContext) error {
 		return nil
 	}
 
-	paramNodes, ok := ctx.Parameters[data]
+	paramNodes, ok := ctx.Parameters[data[1:len(data)-1]]
 	if ok {
 		for _, paramNode := range paramNodes {
-			// node.AppendChild(Clone(paramNode))
 			node.AppendChild(paramNode.Clone())
-		}
-
-		// Set these all to visible as the component node may have hidden the originals
-		for _, desc := range node.Descendants() {
-			desc.SetVisible(true)
 		}
 
 		node.SetVisible(false)
@@ -39,18 +32,15 @@ func (node *TextNode) Instance(ctx NodeContext) error {
 }
 
 // Render returns the text on the data
-func (node *TextNode) Render(file *File) (*File, []*File) {
-	fmt.Println("TEXT RENDER:", node)
+func (node *TextNode) Render() string {
+	ret := ""
 	if node.Visible() {
-		file.Content += node.Data()
+		ret += node.Data()
 	}
 
-	var ret []*File
-	for _, children := range node.Children() {
-		mainFile, files := children.Render(file)
-		file.Content += mainFile.Content
-		ret = append(ret, files...)
+	for _, child := range node.Children() {
+		ret += child.Render()
 	}
 
-	return file, ret
+	return ret
 }
