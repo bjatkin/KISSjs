@@ -60,7 +60,7 @@ func (node *ImportNode) Parse(ctx NodeContext) error {
 
 func (node *ImportNode) Clone() Node {
 	clone := ImportNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), visible: node.Visible()},
+		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
 	for _, child := range node.Children() {
