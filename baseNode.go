@@ -36,6 +36,12 @@ func ToNodeType(node *html.Node) NodeType {
 	if data == "script" {
 		return JSType
 	}
+
+	rel := getAttr(node, "rel")
+	if data == "link" && rel != nil && rel.Val == "stylesheet" {
+		return CSSType
+	}
+
 	return BaseType
 }
 
