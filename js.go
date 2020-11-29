@@ -43,11 +43,7 @@ var tokenPatterns = []JSTokenPattern{
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeKissKeyword,
-		pattern:   regexp.MustCompile(`^nocompile`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKissKeyword,
-		pattern:   regexp.MustCompile(`^nobundle`),
+		pattern:   regexp.MustCompile(`^remote`),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
@@ -165,8 +161,8 @@ type JSToken struct {
 
 // JSImport is a js import statment
 type JSImport struct {
-	src                 string
-	nobundle, nocompile bool
+	src    string
+	remote bool
 }
 
 // JSLine is a line of js
@@ -195,9 +191,8 @@ func (script JSScript) clone() JSScript {
 	for _, imp := range script.imports {
 		clone.imports = append(clone.imports,
 			JSImport{
-				src:       imp.src,
-				nobundle:  imp.nobundle,
-				nocompile: imp.nocompile,
+				src:    imp.src,
+				remote: imp.remote,
 			},
 		)
 	}
@@ -420,11 +415,8 @@ func parseJSImportStatment(script []JSToken) (int, JSImport) {
 			if keyword == "KISSimport" {
 				ret.src = val[1 : len(val)-1]
 			}
-			if keyword == "nobundle" {
-				ret.nobundle = (val == "true")
-			}
-			if keyword == "nocompile" {
-				ret.nocompile = (val == "true")
+			if keyword == "remote" {
+				ret.remote = (val == "true")
 			}
 			expectedToken = tokenTypeComma
 		case tokenTypeComma:

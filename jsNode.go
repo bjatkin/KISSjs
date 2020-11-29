@@ -11,9 +11,9 @@ import (
 // JSNode is a node for any script data
 type JSNode struct {
 	BaseNode
-	Src                 string
-	Script              JSScript
-	NoBundle, NoCompile bool
+	Src    string
+	Script JSScript
+	Remote bool
 }
 
 // Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
@@ -26,16 +26,13 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 		return fmt.Errorf("error at node %s, node has neither a src element nore any child text, empty script nodes nod allowed", node)
 	}
 
-	hasNoCompile, _ := GetAttr(node, "nocompile")
-	node.NoCompile = hasNoCompile
-
-	hasNoBundle, _ := GetAttr(node, "nobundle")
-	node.NoBundle = hasNoBundle
-	if hasNoBundle && !hasSrc {
-		return fmt.Errorf("error at node %s, can not specify nobundle without a src attribute", node)
+	hasRemote, _ := GetAttr(node, "remote")
+	node.Remote = hasRemote
+	if hasRemote && !hasSrc {
+		return fmt.Errorf("error at node %s, can not specify remote without a src attribute", node)
 	}
-
-	if hasNoBundle && hasNoCompile {
+	if node.Remote {
+		node.Src = srcAttr.Val
 		return nil
 	}
 
@@ -70,11 +67,8 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	for _, i := range node.Script.imports {
 		newNode := NewNode("script", JSType)
 		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.src}}
-		if i.nobundle {
-			attrs = append(attrs, &html.Attribute{Key: "nobundle"})
-		}
-		if i.nocompile {
-			attrs = append(attrs, &html.Attribute{Key: "nocompile"})
+		if i.remote {
+			attrs = append(attrs, &html.Attribute{Key: "remote"})
 		}
 		newNode.SetAttrs(attrs)
 		node.AppendChild(newNode)
@@ -97,6 +91,17 @@ func (node *JSNode) Instance(ctx NodeContext) error {
 }
 
 func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+	if node.Remote {
+		ctx.files = ctx.files.Merge(&File{
+			Name:    node.Src,
+			Type:    JSFileType,
+			Entries: []Node{node},
+			Remote:  true,
+		})
+		Detach(node)
+		return ctx
+	}
+
 	if ctx.callerType != JSType {
 		ctx.files = ctx.files.Merge(&File{
 			Name:    "bundle",
@@ -135,8 +140,7 @@ func (node *JSNode) Clone() Node {
 	}
 
 	clone.Src = node.Src
-	clone.NoBundle = node.NoBundle
-	clone.NoCompile = node.NoCompile
+	clone.Remote = node.Remote
 	clone.Script = node.Script.clone()
 
 	return &clone

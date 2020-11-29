@@ -230,6 +230,7 @@ type File struct {
 	Name    string
 	Entries []Node
 	Type    int
+	Remote  bool
 }
 
 type FileList []*File
@@ -247,6 +248,9 @@ func (files FileList) Merge(add *File) FileList {
 }
 
 func (file *File) WriteFile(dir string) error {
+	if file.Remote {
+		return fmt.Errorf("error writing %s, can not write remote files", file.Name)
+	}
 	ext := ".html"
 	if file.Type == JSFileType {
 		ext = ".js"
@@ -255,7 +259,8 @@ func (file *File) WriteFile(dir string) error {
 		ext = ".css"
 	}
 
-	f, err := os.Create(dir + "/" + file.Name + ext)
+	dest := dir + "/" + file.Name + ext
+	f, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
@@ -309,6 +314,9 @@ func Render(outputDir string, root Node) error {
 	}
 
 	for _, file := range ctx.files {
+		if file.Remote {
+			continue
+		}
 		err := file.WriteFile(outputDir)
 		if err != nil {
 			return err
