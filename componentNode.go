@@ -47,7 +47,7 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 		return err
 	}
 
-	ctx.componentScope = "KISS-" + generateScope(6)
+	ctx.componentScope = generateScope(6)
 	ctx.Parameters = make(map[string][]Node)
 
 	paramDesc := node.Descendants()

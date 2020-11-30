@@ -58,10 +58,6 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 		return fmt.Errorf("error at node %s, %s", node, err)
 	}
 	node.Instance(ctx)
-	if strings.Index(node.Script.String(), "Biggest") > 0 {
-		fmt.Println(node.Script.String())
-
-	}
 
 	// Add children
 	for _, i := range node.Script.imports {
