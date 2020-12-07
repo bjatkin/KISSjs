@@ -341,6 +341,9 @@ func (node *BaseNode) Instance(ctx NodeContext) error {
 func (node *BaseNode) Render() string {
 	ret := ""
 	if node.visible {
+		if node.Data() == "br" {
+			return "<br/>"
+		}
 		ret += "<" + node.Data()
 		for _, attr := range node.attr {
 			if len(attr.Val) == 0 {
