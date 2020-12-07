@@ -25,6 +25,10 @@ const (
 	tokenTypeEqual
 	tokenTypeNewLine
 	tokenTypeTemplate
+	tokenTypeComment
+	tokenTypeCommentStart
+	tokenTypeBlockCommentStart
+	tokenTypeBlockCommentEnd
 	tokenTypeAny
 )
 
@@ -68,6 +72,10 @@ var tokenPatterns = []JSTokenPattern{
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
 		pattern:   regexp.MustCompile(`^return `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^document`),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
@@ -140,6 +148,18 @@ var tokenPatterns = []JSTokenPattern{
 	JSTokenPattern{
 		tokenType: tokenTypeTemplate,
 		pattern:   regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeCommentStart,
+		pattern:   regexp.MustCompile(`^\/\/`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeBlockCommentStart,
+		pattern:   regexp.MustCompile(`^\/\*`),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeBlockCommentEnd,
+		pattern:   regexp.MustCompile(`^\*\/`),
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeAny,
@@ -241,6 +261,12 @@ func tokenizeJSScript(script string) []JSToken {
 			i += count
 			continue
 		}
+		if tokens[i].tokenType == tokenTypeCommentStart ||
+			tokens[i].tokenType == tokenTypeBlockCommentStart {
+			count, _ := tokenizeJSComment(tokens[i:])
+			i += count
+			continue
+		}
 		ret = append(ret, tokens[i])
 		i++
 	}
@@ -259,6 +285,28 @@ func tokenizeJSString(script []JSToken) (int, JSToken) {
 		ret.value += script[i].value
 		i++
 		if tok == tokenTypeOpenCloseString {
+			return i, ret
+		}
+	}
+	return 0, JSToken{}
+}
+
+func tokenizeJSComment(script []JSToken) (int, JSToken) {
+	if script[0].tokenType != tokenTypeCommentStart &&
+		script[0].tokenType != tokenTypeBlockCommentStart {
+		return 0, JSToken{}
+	}
+	ret := JSToken{tokenType: tokenTypeComment, value: script[0].value}
+	i := 1
+	endType := tokenTypeNewLine
+	if script[0].tokenType == tokenTypeBlockCommentStart {
+		endType = tokenTypeBlockCommentEnd
+	}
+	for i < len(script) {
+		tok := script[i].tokenType
+		ret.value += script[i].value
+		i++
+		if tok == endType {
 			return i, ret
 		}
 	}
