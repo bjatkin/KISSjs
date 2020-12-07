@@ -9,8 +9,9 @@
    Render - Take the datastructure and convert it into plain text HTML, JS, and CSS
 
 # TODO
- - [ ] Fix the bug where id is being set to {id}
- - [ ] Remove the lazy.js poriton from the framework. Lazy components are not really nessisary right now
+ - [x] Fix the bug where id is being set to {id}
+ - [x] Remove the lazy.js poriton from the framework. Lazy components are not really nessisary right now
+ - [x] Take into account comments witht he JS Parser
  - [ ] Add in a CSS Parser to make the CSS bundling more robust
  - [ ] Move the JS Parse to it's own module to clean up the naming
  - [ ] Add a default component so any unpassed parameter can still be set

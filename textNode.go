@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -13,7 +12,6 @@ type TextNode struct {
 // Instance replaces props in a node with params
 func (node *TextNode) Instance(ctx NodeContext) error {
 	if node.Visible() {
-		fmt.Println("HERE ", node)
 		data := strings.TrimSpace(node.Data())
 		if len(data) == 0 || data[0] != '{' || data[len(data)-1] != '}' {
 			return nil
