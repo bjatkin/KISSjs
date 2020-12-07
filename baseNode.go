@@ -91,7 +91,6 @@ type Node interface {
 	SetNextSibling(Node)
 }
 
-// TODO: Consider removing Type() from the interface?
 // TODO: Consider making the interface more narrow by removing antying not required. e.g. Children/ Descendants/ AppendChild etc.
 // TODO: Could you remove the Parent() and parent from the node interface? This would strongly enforce the flow of the program
 
@@ -303,11 +302,7 @@ func (node *BaseNode) Clone() Node {
 // Parse builds the nodes structure and then calls parse on all it's child nodes
 func (node *BaseNode) Parse(ctx NodeContext) error {
 	for _, child := range node.Children() {
-		err := child.Instance(ctx)
-		if err != nil {
-			return err
-		}
-		err = child.Parse(ctx)
+		err := child.Parse(ctx)
 		if err != nil {
 			return err
 		}
@@ -317,18 +312,7 @@ func (node *BaseNode) Parse(ctx NodeContext) error {
 
 // Instance takes parameters from the node context and replaces template parameteres
 func (node *BaseNode) Instance(ctx NodeContext) error {
-	added := false
-	for _, attr := range node.Attrs() {
-		if attr.Key == "class" {
-			attr.Val += " " + ctx.componentScope
-			added = true
-		}
-	}
-
-	if !added {
-		node.SetAttrs(append(node.Attrs(), &html.Attribute{Key: "class", Val: ctx.componentScope}))
-	}
-
+	AddClass(node, ctx.componentScope)
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
 	for _, attr := range node.Attrs() {
 		matches := re.FindAll([]byte(attr.Val), -1)
@@ -340,6 +324,13 @@ func (node *BaseNode) Instance(ctx NodeContext) error {
 				}
 				attr.Val = strings.ReplaceAll(attr.Val, string(match), node[0].Data())
 			}
+		}
+	}
+
+	for _, child := range node.Children() {
+		err := child.Instance(ctx)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -483,4 +474,31 @@ func GetAttr(node Node, key string) (bool, *html.Attribute) {
 		}
 	}
 	return false, nil
+}
+
+func AddClass(node Node, class string) {
+	classes := []string{}
+	for _, attr := range node.Attrs() {
+		if attr.Key == "class" {
+			classes = strings.Split(attr.Val, " ")
+		}
+	}
+
+	if len(classes) == 0 {
+		node.SetAttrs(append(node.Attrs(), &html.Attribute{Key: "class"}))
+	}
+
+	for i := 0; i < len(classes); i++ {
+		if class == classes[i] {
+			return
+		}
+	}
+
+	classes = append(classes, class)
+	for _, attr := range node.Attrs() {
+		if attr.Key == "class" {
+			attr.Val = strings.Join(classes, " ")
+			return
+		}
+	}
 }

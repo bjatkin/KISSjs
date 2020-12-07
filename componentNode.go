@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -47,29 +48,11 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 		return err
 	}
 
-	ctx.componentScope = generateScope(6)
-	ctx.Parameters = make(map[string][]Node)
-
-	paramDesc := node.Descendants()
-	for _, attr := range node.Attrs() {
-		ctx.Parameters[strings.ToLower(attr.Key)] = []Node{NewNode(attr.Val, TextType)}
-	}
-
-	for _, child := range node.Children() {
-		ctx.Parameters[strings.ToLower(child.Data())] = child.Children()
-	}
-
 	var root Node
 	for _, tag := range ctx.ImportTags {
 		if strings.ToLower(node.Data()) == tag.tag {
 			root = tag.root.Clone()
 			root.SetVisible(false)
-			for _, desc := range root.Descendants() {
-				err := desc.Instance(ctx)
-				if err != nil {
-					return fmt.Errorf("error at node %s, could not copy data from class into component %s", node, err)
-				}
-			}
 			node.AppendChild(root)
 
 			ctx.path = tag.path
@@ -77,8 +60,58 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 		}
 	}
 
-	for _, desc := range paramDesc {
-		desc.SetVisible(false)
+	return nil
+}
+
+func (node *ComponentNode) Instance(ctx NodeContext) error {
+	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
+	for _, attr := range node.Attrs() {
+		matches := re.FindAll([]byte(attr.Val), -1)
+		for _, match := range matches {
+			node, ok := ctx.Parameters[string(match[1:len(match)-1])]
+			if ok {
+				if len(node) != 1 || node[0].Type() != TextType {
+					return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
+				}
+				attr.Val = strings.ReplaceAll(attr.Val, string(match), node[0].Data())
+			}
+		}
+	}
+
+	ctx.componentScope = generateScope(6)
+	ctx.Parameters = make(map[string][]Node)
+
+	for _, attr := range node.Attrs() {
+		ctx.Parameters[strings.ToLower(attr.Key)] = []Node{NewNode(attr.Val, TextType)}
+	}
+
+	for _, child := range node.Children() {
+		if child.Data() == "root" {
+			err := child.Instance(ctx)
+			if err != nil {
+				return err
+			}
+			break
+		}
+		ctx.Parameters[strings.ToLower(child.Data())] = child.Children()
+	}
+
+	for _, child := range node.Children() {
+		err := child.Instance(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Hide all the parameters
+	for _, child := range node.Children() {
+		if child.Data() == "root" {
+			continue
+		}
+		child.SetVisible(false)
+		for _, desc := range child.Descendants() {
+			desc.SetVisible(false)
+		}
 	}
 
 	return nil

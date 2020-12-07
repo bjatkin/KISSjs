@@ -1,0 +1,15 @@
+New File:  <kissheader div_color="red" title_color="white" adjective="Biggest">...</> console.log("Hey this Biggest is cool");
+New File:  <kissbutton div_color="black" btn_color="white" txt_color="black" id="ya_star">...</> let elm=document.getElementById("ya_star");elm.addEventListener('click',()=>{alert("button with id: ya_star was pressed");console.log("the pressed label was b");});
+New File:  <kissbutton div_color="gray" btn_color="gray" txt_color="lightgray" id="meh_star">...</> let elm=document.getElementById("meh_star");elm.addEventListener('click',()=>{alert("button with id: meh_star was pressed");console.log("the pressed label was small");});
+New File:  <kissbutton div_color="red" btn_color="red" txt_color="yellow" id="boo_star" label="boo starwars">...</> let elm=document.getElementById("boo_star");elm.addEventListener('click',()=>{alert("button with id: boo_star was pressed");console.log("the pressed label was boo starwars");});
+New File:  <kisslistitem id="opt1">...</> let item=document.getElementById("$id$");console.log("Mouse Over Event for $id$ Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <kisslistitem id="opt2">...</> let item=document.getElementById("$id$");console.log("Mouse Over Event for $id$ Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <kisslistitem id="opt3" list_item="regular option">...</> let item=document.getElementById("$id$");console.log("Mouse Over Event for $id$ Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <listelm id="kiss_list" list_item="FIRST ITEM">...</> let item=document.getElementById("kiss_list");console.log("Mouse Over Event for kiss_list Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <kisslistitem id="opt1">...</> let item=document.getElementById("opt1");console.log("Mouse Over Event for opt1 Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <kisslistitem id="opt2">...</> let item=document.getElementById("opt2");console.log("Mouse Over Event for opt2 Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <kisslistitem id="opt3" list_item="regular option">...</> let item=document.getElementById("opt3");console.log("Mouse Over Event for opt3 Created");item.addEventListener("mouseover",()=>{item.style.color="red";});
+New File:  <inline word="GREAT">...</> console.log("THIS MEANS AN INLINE COMPONENT WAS ADDED");
+New File:  <inline word="AWESOME">...</> console.log("THIS MEANS AN INLINE COMPONENT WAS ADDED");
+New File:  <html class="">...</> function doKiss(){console.log("did the kiss");observeIT();SinglePage();}doKiss();externalFN();setTimeout(()=>{let url=document.getElementById("test").getAttribute("src");html=fetch(url,{method:"GET",}).then(resp=>resp.text()).then(resp=>{console.log(resp);document.getElementById("test").innerHTML=resp;});},2500);
+New File:  <html class="">...</> let mainMsgMan="This is the main script";mainMsgMan+="!! :)";console.log(mainMsgMan);

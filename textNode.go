@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -11,24 +12,24 @@ type TextNode struct {
 
 // Instance replaces props in a node with params
 func (node *TextNode) Instance(ctx NodeContext) error {
-	if !node.Visible() {
-		return nil
-	}
-
-	data := strings.TrimSpace(node.Data())
-	if len(data) == 0 || data[0] != '{' || data[len(data)-1] != '}' {
-		return nil
-	}
-
-	paramNodes, ok := ctx.Parameters[data[1:len(data)-1]]
-	if ok {
-		for _, paramNode := range paramNodes {
-			node.AppendChild(paramNode.Clone())
+	if node.Visible() {
+		fmt.Println("HERE ", node)
+		data := strings.TrimSpace(node.Data())
+		if len(data) == 0 || data[0] != '{' || data[len(data)-1] != '}' {
+			return nil
 		}
 
-		node.SetVisible(false)
+		paramNodes, ok := ctx.Parameters[data[1:len(data)-1]]
+		if ok {
+			for _, paramNode := range paramNodes {
+				node.AppendChild(paramNode.Clone())
+			}
+
+			node.SetVisible(false)
+		}
 	}
-	return nil
+
+	return node.BaseNode.Instance(ctx)
 }
 
 // Render returns the text on the data

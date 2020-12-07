@@ -57,7 +57,6 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	if err != nil {
 		return fmt.Errorf("error at node %s, %s", node, err)
 	}
-	node.Instance(ctx)
 
 	// Add children
 	for _, i := range node.Script.imports {
@@ -83,10 +82,16 @@ func (node *JSNode) Instance(ctx NodeContext) error {
 			}
 		}
 	}
+
 	return nil
 }
 
 func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+	if !node.Visible() {
+		Detach(node)
+		return ctx
+	}
+
 	if node.Remote {
 		ctx.files = ctx.files.Merge(&File{
 			Name:    node.Src,

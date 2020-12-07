@@ -11,7 +11,6 @@ type CSSNode struct {
 	BaseNode
 	Href   string
 	Rules  []*CSSRule
-	Scope  string
 	Remote bool
 }
 
@@ -34,7 +33,6 @@ func (node *CSSNode) Parse(ctx NodeContext) error {
 		return nil
 	}
 
-	node.Scope = ctx.componentScope
 	// extract the css rules
 	css := ""
 	if node.FirstChild() != nil {
@@ -56,13 +54,6 @@ func (node *CSSNode) Parse(ctx NodeContext) error {
 	}
 
 	node.Rules = rules
-
-	// apply the correct scope
-	if ctx.componentScope != "" {
-		for _, rule := range node.Rules {
-			rule.AddClass(ctx.componentScope)
-		}
-	}
 
 	return nil
 }
@@ -132,7 +123,6 @@ func (node *CSSNode) Clone() Node {
 	for _, rule := range node.Rules {
 		clone.Rules = append(clone.Rules, rule.clone())
 	}
-	clone.Scope = node.Scope
 
 	return &clone
 }

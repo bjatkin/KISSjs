@@ -45,6 +45,11 @@ func main() {
 		fmt.Printf("There was an error parsing the structure: %s\n", err)
 		return
 	}
+	err = root.Instance(ctx)
+	if err != nil {
+		fmt.Printf("There was an error instancing the structure: %s\n", err)
+		return
+	}
 
 	err = Render(args.output, root)
 	if err != nil {
@@ -239,12 +244,12 @@ func (files FileList) Merge(add *File) FileList {
 	for _, file := range files {
 		if file.Name == add.Name &&
 			file.Type == add.Type {
-			file.Entries = append(file.Entries, add.Entries...)
+			file.Entries = append(add.Entries, file.Entries...)
 			return files
 		}
 	}
 
-	return append(files, add)
+	return append([]*File{add}, files...)
 }
 
 func (file *File) WriteFile(dir string) error {
@@ -303,12 +308,20 @@ func Render(outputDir string, root Node) error {
 	ctx = root.FindEntry(ctx)
 	for _, entry := range ctx.files {
 		if entry.Type == CSSFileType {
+			name := entry.Name
+			if !entry.Remote {
+				name += ".css"
+			}
 			head.AppendChild(
-				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: entry.Name + ".css"}))
+				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: name}))
 		}
 		if entry.Type == JSFileType {
+			name := entry.Name
+			if !entry.Remote {
+				name += ".js"
+			}
 			body.AppendChild(
-				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: entry.Name + ".js"}))
+				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: name}))
 
 		}
 	}
