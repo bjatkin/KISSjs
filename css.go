@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -53,25 +52,6 @@ func (css *CSSRule) String() string {
 	}
 
 	return ret + "}"
-}
-
-func test() {
-	css := `
-	div {
-		color: #fff;
-		border: 1px solid black;
-	}	
-
-	.newclass {
-		test: "@this_is_a_test@";	
-		again: 100px;
-	}
-	`
-
-	rules, _ := ParseCSS(css)
-	for _, rule := range rules {
-		fmt.Printf("rule: %#v\n", rule)
-	}
 }
 
 // ParseCSS converts a string of css into css rules
