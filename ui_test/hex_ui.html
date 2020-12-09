@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                background-color: #000008;
+            }
+
+            .row {
+                width: 100%;
+                height: 77px;
+            }
+
+            .main {
+                width: 100%;
+            }
+
+            .row:nth-child(odd) {
+                margin-left: -45px;
+            }
+        </style>
+    </head>
+    <body>
+        <component tag="hx_button" src="hex_btn.html"></component>
+        <div class="main">
+            <div style="margin: 10px;">
+                <div class="row">
+                    <hx_button id="test"></hx_button>
+                </div>
+                <div class="row">
+                    <hx_button id="test2"></hx_button>
+                    <hx_button id="test3"></hx_button>
+                    <hx_button id="test4"></hx_button>
+                </div>
+                <div class="row">
+                    <hx_button id="test5"></hx_button>
+                    <hx_button id="test6"></hx_button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
