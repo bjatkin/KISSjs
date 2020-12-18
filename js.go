@@ -75,6 +75,10 @@ var tokenPatterns = []JSTokenPattern{
 	},
 	JSTokenPattern{
 		tokenType: tokenTypeKeyword,
+		pattern:   regexp.MustCompile(`^const `),
+	},
+	JSTokenPattern{
+		tokenType: tokenTypeKeyword,
 		pattern:   regexp.MustCompile(`^document`),
 	},
 	JSTokenPattern{
@@ -407,8 +411,19 @@ func addSemiColons(lines []JSLine) []JSLine {
 			add = false
 		}
 
+		switch postTok {
+		case tokenTypeCloseExpression:
+			add = false
+		}
+
 		if preTok == tokenTypeCloseObject && postTok == tokenTypeKeyword {
 			add = true
+		}
+		if preTok == tokenTypeCloseObject && postTok == tokenTypeAny {
+			add = true
+		}
+		if preTok == tokenTypeCloseExpression && postTok == tokenTypeCloseExpression {
+			add = false
 		}
 
 		if add {
