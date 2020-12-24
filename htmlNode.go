@@ -91,9 +91,9 @@ func listNodes(root *html.Node) []*html.Node {
 	return ret
 }
 
-func generateScope(l int) string {
+func randomID(l int) string {
 	ref := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	ret := "KISS-"
+	ret := ""
 	for i := 0; i < l; i++ {
 		ret += string(ref[rand.Intn(len(ref))])
 	}

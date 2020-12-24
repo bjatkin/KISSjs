@@ -78,7 +78,7 @@ func (node *ComponentNode) Instance(ctx NodeContext) error {
 		}
 	}
 
-	ctx.componentScope = generateScope(6)
+	ctx.componentScope = "k-" + randomID(6)
 	ctx.Parameters = make(map[string][]Node)
 
 	for _, attr := range node.Attrs() {
