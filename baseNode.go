@@ -65,7 +65,7 @@ func (nType NodeType) String() string {
 // Node is a interface for all objects that can behave like html nodes
 type Node interface {
 	AppendChild(Node)
-	InsertBefore(Node, Node) error
+	InsertBefore(new Node, child Node) error
 	Children() []Node
 	Descendants() []Node
 	String() string
@@ -227,11 +227,17 @@ func (node *BaseNode) InsertBefore(new, child Node) error {
 	check := node.FirstChild()
 	for check != nil {
 		if check == child {
+			prev := check.PrevSibling()
+			prev.SetNextSibling(new)
+			new.SetPrevSibling(prev)
+			check.SetPrevSibling(new)
+
 			new.SetParent(node)
-			new.SetPrevSibling(check.PrevSibling())
 			new.SetNextSibling(check)
+
 			return nil
 		}
+		check = check.NextSibling()
 	}
 	return fmt.Errorf("node %s is not a child of %s", child, node)
 }
@@ -343,6 +349,9 @@ func (node *BaseNode) Render() string {
 	if node.visible {
 		if node.Data() == "br" {
 			return "<br/>"
+		}
+		if node.Data() == "hr" {
+			return "<hr>"
 		}
 		ret += "<" + node.Data()
 		for _, attr := range node.attr {
