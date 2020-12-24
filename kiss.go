@@ -77,8 +77,15 @@ func parseEntryFile(file string) (Node, error) {
 	root.SetVisible(false)
 	root = fragmentNodes(root)
 	root = removeWhiteSpace(root)
+	root, err = convertInstanceComponents(root)
+	if err != nil {
+		return nil, err
+	}
 	root = hoistImports(root)
-	root = convertComponents(root)
+	root, err = convertComponents(root)
+	if err != nil {
+		return nil, err
+	}
 
 	return root, nil
 }
@@ -109,8 +116,15 @@ func parseComponentFile(file string) ([]Node, error) {
 	root := convertNodeTree(nil, htmlRoot[0])
 	root = removeWhiteSpace(root)
 	root = fragmentNodes(root)
+	root, err = convertInstanceComponents(root)
+	if err != nil {
+		return nil, err
+	}
 	root = hoistImports(root)
-	root = convertComponents(root)
+	root, err = convertComponents(root)
+	if err != nil {
+		return nil, err
+	}
 
 	ret := []Node{}
 	for _, node := range root.Children() {
@@ -165,11 +179,40 @@ func hoistImports(root Node) Node {
 	return root
 }
 
-func convertComponents(root Node) Node {
+func convertInstanceComponents(root Node) (Node, error) {
+	desc := root.Descendants()
+	for i := 0; i < len(desc); i++ {
+		node := desc[i]
+		if strings.ToLower(node.Data()) == "component" {
+			hasTag, _ := GetAttr(node, "tag")
+			if hasTag {
+				continue
+			}
+
+			tagName := "tag-" + randomID(6)
+			attrs := node.Attrs()
+			add := NewNode(tagName, BaseType, attrs...)
+			attrs = append(attrs, &html.Attribute{Key: "tag", Val: tagName})
+			node.SetAttrs(attrs)
+
+			err := node.Parent().InsertBefore(add, node)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return root, nil
+}
+
+func convertComponents(root Node) (Node, error) {
 	tags := []string{}
 	for _, node := range root.Descendants() {
 		if strings.ToLower(node.Data()) == "component" {
-			_, tagAttr := GetAttr(node, "tag")
+			hasTag, tagAttr := GetAttr(node, "tag")
+			if !hasTag {
+				return nil, fmt.Errorf("component node missing tag value %s", node)
+			}
 			tags = append(tags, tagAttr.Val)
 		}
 		for _, tag := range tags {
@@ -179,7 +222,7 @@ func convertComponents(root Node) Node {
 		}
 	}
 
-	return root
+	return root, nil
 }
 
 func removeWhiteSpace(root Node) Node {
