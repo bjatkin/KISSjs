@@ -225,7 +225,11 @@ func (node *BaseNode) InsertBefore(new, child Node) error {
 	for check != nil {
 		if check == child {
 			prev := check.PrevSibling()
-			prev.SetNextSibling(new)
+			if prev != nil {
+				prev.SetNextSibling(new)
+			} else {
+				node.Parent().SetFirstChild(new)
+			}
 			new.SetPrevSibling(prev)
 			check.SetPrevSibling(new)
 
@@ -320,12 +324,19 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 	for _, attr := range node.Attrs() {
 		matches := re.FindAll([]byte(attr.Val), -1)
 		for _, match := range matches {
-			node, ok := ctx.Parameters[string(match[1:len(match)-1])]
+			pnode, ok := ctx.Parameters[string(match[1:len(match)-1])]
 			if ok {
-				if len(node) != 1 || node[0].Type() != TextType {
+				param := ""
+				if len(param) == 1 {
+					param = pnode[0].Data()
+				}
+				if len(pnode) > 1 {
+					return fmt.Errorf("error at node %s, tried to replace %s with multiple param nodes", node, match)
+				}
+				if len(pnode) == 1 && pnode[0].Type() != TextType {
 					return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
 				}
-				attr.Val = strings.ReplaceAll(attr.Val, string(match), node[0].Data())
+				attr.Val = strings.ReplaceAll(attr.Val, string(match), param)
 			}
 		}
 	}

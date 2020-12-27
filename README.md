@@ -25,3 +25,4 @@
 
 # BUGS
  - [x] Index out of range[0] with length 0 error when paramter node has no child nodes
+ - [x] Instanced components do not copy child node parameters

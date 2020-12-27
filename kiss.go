@@ -197,6 +197,15 @@ func convertInstanceComponents(root Node) (Node, error) {
 			attrs = append(attrs, &html.Attribute{Key: "tag", Val: tagName})
 			node.SetAttrs(attrs)
 
+			// Steal the childrent from the component node
+			add.SetFirstChild(node.FirstChild())
+			fmt.Println(node)
+			for _, child := range node.Children() {
+				fmt.Println(" - ", child)
+				child.SetParent(add)
+			}
+			node.SetFirstChild(nil)
+
 			err := node.Parent().InsertBefore(add, node)
 			if err != nil {
 				return nil, err

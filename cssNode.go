@@ -68,10 +68,14 @@ func (node *CSSNode) Instance(ctx InstNodeContext) error {
 			for k := 0; k < len(style.Value); k++ {
 				val := &style.Value
 				for name, param := range ctx.Parameters {
+					p := ""
+					if len(param) > 0 {
+						p = param[0].Data()
+					}
 					*val = strings.ReplaceAll(
 						*val,
 						"\"@"+name+"@\"",
-						param[0].Data(),
+						p,
 					)
 				}
 			}
