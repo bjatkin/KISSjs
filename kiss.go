@@ -199,9 +199,7 @@ func convertInstanceComponents(root Node) (Node, error) {
 
 			// Steal the childrent from the component node
 			add.SetFirstChild(node.FirstChild())
-			fmt.Println(node)
 			for _, child := range node.Children() {
-				fmt.Println(" - ", child)
 				child.SetParent(add)
 			}
 			node.SetFirstChild(nil)
