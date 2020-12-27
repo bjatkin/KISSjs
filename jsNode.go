@@ -78,7 +78,11 @@ func (node *JSNode) Instance(ctx NodeContext) error {
 		for j := 0; j < len(line.value); j++ {
 			tok := &line.value[j]
 			for name, param := range ctx.Parameters {
-				tok.value = strings.ReplaceAll(tok.value, "$"+name+"$", param[0].Data())
+				val := ""
+				if len(param) > 0 {
+					val = param[0].Data()
+				}
+				tok.value = strings.ReplaceAll(tok.value, "$"+name+"$", val)
 			}
 		}
 	}
