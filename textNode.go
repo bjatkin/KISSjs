@@ -9,8 +9,8 @@ type TextNode struct {
 	BaseNode
 }
 
-// Instance replaces props in a node with params
-func (node *TextNode) Instance(ctx NodeContext) error {
+// Instance takes parameters from the node context and replaces template parameteres
+func (node *TextNode) Instance(ctx InstNodeContext) error {
 	if node.Visible() {
 		data := strings.TrimSpace(node.Data())
 		if len(data) == 0 || data[0] != '{' || data[len(data)-1] != '}' {

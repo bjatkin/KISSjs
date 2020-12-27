@@ -15,7 +15,7 @@ type CSSNode struct {
 }
 
 // Parse extracts all css rules and applies the correct scope to them
-func (node *CSSNode) Parse(ctx NodeContext) error {
+func (node *CSSNode) Parse(ctx ParseNodeContext) error {
 	hasHref, hrefAttr := GetAttr(node, "href")
 	hasRemote, _ := GetAttr(node, "remote")
 	node.Remote = hasRemote
@@ -58,7 +58,8 @@ func (node *CSSNode) Parse(ctx NodeContext) error {
 	return nil
 }
 
-func (node *CSSNode) Instance(ctx NodeContext) error {
+// Instance takes parameters from the node context and replaces template parameteres
+func (node *CSSNode) Instance(ctx InstNodeContext) error {
 	for i := 0; i < len(node.Rules); i++ {
 		rule := node.Rules[i]
 		rule.AddClass(ctx.componentScope)
@@ -79,6 +80,7 @@ func (node *CSSNode) Instance(ctx NodeContext) error {
 	return nil
 }
 
+// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
 func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	if node.Remote {
 		ctx.files = ctx.files.Merge(&File{
@@ -101,6 +103,7 @@ func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	return ctx
 }
 
+// Render converts a node into a textual representation
 func (node *CSSNode) Render() string {
 	ret := ""
 
@@ -111,6 +114,7 @@ func (node *CSSNode) Render() string {
 	return ret
 }
 
+// Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *CSSNode) Clone() Node {
 	clone := CSSNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},

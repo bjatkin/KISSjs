@@ -33,142 +33,40 @@ const (
 )
 
 var tokenPatterns = []JSTokenPattern{
-	JSTokenPattern{
-		tokenType: tokenTypeOpenImport,
-		pattern:   regexp.MustCompile(`^\({`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeCloseImport,
-		pattern:   regexp.MustCompile(`^}\)`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKissKeyword,
-		pattern:   regexp.MustCompile(`^KISSimport`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKissKeyword,
-		pattern:   regexp.MustCompile(`^remote`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^function {0,1}`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^var `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^let `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^yield `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^new `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^return `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^const `),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^document`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^async {0,1}`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^await {0,1}`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeKeyword,
-		pattern:   regexp.MustCompile(`^import {0,1}`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeEqual,
-		pattern:   regexp.MustCompile(`^=`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeValue,
-		pattern:   regexp.MustCompile(`^(?:true|false)`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeEscapedOpenCloseString,
-		pattern:   regexp.MustCompile(`^\\['"]`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeOpenCloseString,
-		pattern:   regexp.MustCompile(`^[\x60'"]`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeWhiteSpace,
-		pattern:   regexp.MustCompile(`^[ \t]+`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeNewLine,
-		pattern:   regexp.MustCompile(`^[\n\r]+`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeSemiColon,
-		pattern:   regexp.MustCompile(`^;`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeColon,
-		pattern:   regexp.MustCompile(`^:`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeComma,
-		pattern:   regexp.MustCompile(`^,`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeOpenObject,
-		pattern:   regexp.MustCompile(`^{`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeCloseObject,
-		pattern:   regexp.MustCompile(`^}`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeOpenExpression,
-		pattern:   regexp.MustCompile(`^[\(\[]`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeCloseExpression,
-		pattern:   regexp.MustCompile(`^[\)\]]`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeDot,
-		pattern:   regexp.MustCompile(`^\.`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeTemplate,
-		pattern:   regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeCommentStart,
-		pattern:   regexp.MustCompile(`^\/\/`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeBlockCommentStart,
-		pattern:   regexp.MustCompile(`^\/\*`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeBlockCommentEnd,
-		pattern:   regexp.MustCompile(`^\*\/`),
-	},
-	JSTokenPattern{
-		tokenType: tokenTypeAny,
-		pattern:   regexp.MustCompile(`^.`),
-	},
+	JSTokenPattern{tokenTypeOpenImport, regexp.MustCompile(`^\({`)},
+	JSTokenPattern{tokenTypeCloseImport, regexp.MustCompile(`^}\)`)},
+	JSTokenPattern{tokenTypeKissKeyword, regexp.MustCompile(`^KISSimport`)},
+	JSTokenPattern{tokenTypeKissKeyword, regexp.MustCompile(`^remote`)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^function {0,1}`)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^var `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^let `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^yield `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^new `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^return `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^const `)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^document`)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^async {0,1}`)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^await {0,1}`)},
+	JSTokenPattern{tokenTypeKeyword, regexp.MustCompile(`^import {0,1}`)},
+	JSTokenPattern{tokenTypeEqual, regexp.MustCompile(`^=`)},
+	JSTokenPattern{tokenTypeValue, regexp.MustCompile(`^(?:true|false)`)},
+	JSTokenPattern{tokenTypeEscapedOpenCloseString, regexp.MustCompile(`^\\['"]`)},
+	JSTokenPattern{tokenTypeOpenCloseString, regexp.MustCompile(`^[\x60'"]`)},
+	JSTokenPattern{tokenTypeWhiteSpace, regexp.MustCompile(`^[ \t]+`)},
+	JSTokenPattern{tokenTypeNewLine, regexp.MustCompile(`^[\n\r]+`)},
+	JSTokenPattern{tokenTypeSemiColon, regexp.MustCompile(`^;`)},
+	JSTokenPattern{tokenTypeColon, regexp.MustCompile(`^:`)},
+	JSTokenPattern{tokenTypeComma, regexp.MustCompile(`^,`)},
+	JSTokenPattern{tokenTypeOpenObject, regexp.MustCompile(`^{`)},
+	JSTokenPattern{tokenTypeCloseObject, regexp.MustCompile(`^}`)},
+	JSTokenPattern{tokenTypeOpenExpression, regexp.MustCompile(`^[\(\[]`)},
+	JSTokenPattern{tokenTypeCloseExpression, regexp.MustCompile(`^[\)\]]`)},
+	JSTokenPattern{tokenTypeDot, regexp.MustCompile(`^\.`)},
+	JSTokenPattern{tokenTypeTemplate, regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`)},
+	JSTokenPattern{tokenTypeCommentStart, regexp.MustCompile(`^\/\/`)},
+	JSTokenPattern{tokenTypeBlockCommentStart, regexp.MustCompile(`^\/\*`)},
+	JSTokenPattern{tokenTypeBlockCommentEnd, regexp.MustCompile(`^\*\/`)},
+	JSTokenPattern{tokenTypeAny, regexp.MustCompile(`^.`)},
 }
 
 // JSTokenPattern matches a regex with a tokenType

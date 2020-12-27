@@ -21,6 +21,7 @@
             e.g. (< chip > TEST </> is the same as < chip label="TEST"></> )
  - [x] Having some way to import a component and then instantly instance it would be nice
             Potential syntax < component src="only_once.html" atrib="test" ></>
+ - [x] Fix the docstrings
 
 # BUGS
  - [x] Index out of range[0] with length 0 error when paramter node has no child nodes

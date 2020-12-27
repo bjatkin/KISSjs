@@ -17,7 +17,7 @@ type JSNode struct {
 }
 
 // Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
-func (node *JSNode) Parse(ctx NodeContext) error {
+func (node *JSNode) Parse(ctx ParseNodeContext) error {
 	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
@@ -72,7 +72,8 @@ func (node *JSNode) Parse(ctx NodeContext) error {
 	return node.BaseNode.Parse(ctx)
 }
 
-func (node *JSNode) Instance(ctx NodeContext) error {
+// Instance replaces props in a node with params
+func (node *JSNode) Instance(ctx InstNodeContext) error {
 	for i := 0; i < len(node.Script.lines); i++ {
 		line := &node.Script.lines[i]
 		for j := 0; j < len(line.value); j++ {
@@ -90,6 +91,7 @@ func (node *JSNode) Instance(ctx NodeContext) error {
 	return nil
 }
 
+// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
 func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	if !node.Visible() {
 		Detach(node)
@@ -124,6 +126,7 @@ func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	return ctx
 }
 
+// Render converts a node into a textual representation
 func (node *JSNode) Render() string {
 	ret := "{" + node.Script.String() + "}"
 
@@ -135,6 +138,7 @@ func (node *JSNode) Render() string {
 	return ret
 }
 
+// Clone clones a parse node context
 func (node *JSNode) Clone() Node {
 	clone := JSNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},

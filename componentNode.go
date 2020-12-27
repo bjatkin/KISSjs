@@ -13,36 +13,8 @@ type ComponentNode struct {
 	NoBundle, NoCompile bool
 }
 
-// ToComponentNode converts any kiss node into a component type node
-// Warning! this function should not be used in a Parse, Inline, or Render function
-// if this function is used in a Parse or Inline function it
-// should never be used on sibling or parent nodes,
-// only on child nodes or a sibling's child nodes
-func ToComponentNode(node Node) Node {
-	ret := NewNode(node.Data(), ComponentType, node.Attrs()...)
-	ret.SetParent(node.Parent())
-	if node.Parent() != nil && node.PrevSibling() == nil {
-		node.Parent().SetFirstChild(ret)
-	}
-	ret.SetFirstChild(node.FirstChild())
-	for _, child := range node.Children() {
-		child.SetParent(ret)
-	}
-	ret.SetPrevSibling(node.PrevSibling())
-	if node.PrevSibling() != nil {
-		node.PrevSibling().SetNextSibling(ret)
-	}
-	ret.SetNextSibling(node.NextSibling())
-	if node.NextSibling() != nil {
-		node.NextSibling().SetPrevSibling(ret)
-	}
-
-	ret.SetVisible(false)
-	return ret
-}
-
 // Parse uses the it's class to add a root component and then calls parse on all it's children
-func (node *ComponentNode) Parse(ctx NodeContext) error {
+func (node *ComponentNode) Parse(ctx ParseNodeContext) error {
 	err := node.BaseNode.Parse(ctx)
 	if err != nil {
 		return err
@@ -63,7 +35,8 @@ func (node *ComponentNode) Parse(ctx NodeContext) error {
 	return nil
 }
 
-func (node *ComponentNode) Instance(ctx NodeContext) error {
+// Instance takes parameters from the node context and replaces template parameteres
+func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
 	for _, attr := range node.Attrs() {
 		matches := re.FindAll([]byte(attr.Val), -1)
@@ -117,6 +90,7 @@ func (node *ComponentNode) Instance(ctx NodeContext) error {
 	return nil
 }
 
+// Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *ComponentNode) Clone() Node {
 	clone := ComponentNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},

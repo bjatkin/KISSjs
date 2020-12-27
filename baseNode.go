@@ -13,7 +13,7 @@ type NodeType int
 
 // The list of node types
 const (
-	BaseType = iota
+	BaseType = NodeType(iota)
 	ImportType
 	ComponentType
 	TextType
@@ -64,13 +64,13 @@ func (nType NodeType) String() string {
 
 // Node is a interface for all objects that can behave like html nodes
 type Node interface {
-	AppendChild(Node)
+	AppendChild(child Node)
 	InsertBefore(new Node, child Node) error
 	Children() []Node
 	Descendants() []Node
 	String() string
-	Parse(NodeContext) error
-	Instance(NodeContext) error
+	Parse(ParseNodeContext) error
+	Instance(InstNodeContext) error
 	Render() string
 	FindEntry(RenderNodeContext) RenderNodeContext
 	Type() NodeType
@@ -91,17 +91,19 @@ type Node interface {
 	SetNextSibling(Node)
 }
 
-// TODO: Consider making the interface more narrow by removing antying not required. e.g. Children/ Descendants/ AppendChild etc.
-// TODO: Could you remove the Parent() and parent from the node interface? This would strongly enforce the flow of the program
+// ParseNodeContext passes contextual infromation from parent to child nodes durring parsing
+type ParseNodeContext struct {
+	path       string
+	ImportTags []ImportTag
+}
 
-// NodeContext passes contextual infromation from parent to child nodes durring parsing
-type NodeContext struct {
-	path           string
+// InstNodeContext passes contextual infromation from parent to child nodes durring instancing
+type InstNodeContext struct {
 	componentScope string
-	ImportTags     []ImportTag
 	Parameters     map[string][]Node
 }
 
+// RenderNodeContext passes contextual informaiton from parent to child nodes durring rendering
 type RenderNodeContext struct {
 	callerType NodeType
 	files      FileList
@@ -115,11 +117,9 @@ type ImportTag struct {
 }
 
 // Clone clones a parse node context
-func (ctx NodeContext) Clone() NodeContext {
-	ret := NodeContext{
-		path:           ctx.path,
-		componentScope: ctx.componentScope,
-		Parameters:     make(map[string][]Node),
+func (ctx ParseNodeContext) Clone() ParseNodeContext {
+	ret := ParseNodeContext{
+		path: ctx.path,
 	}
 
 	for _, tag := range ctx.ImportTags {
@@ -132,9 +132,6 @@ func (ctx NodeContext) Clone() NodeContext {
 		)
 	}
 
-	for param, node := range ctx.Parameters {
-		ret.Parameters[param] = node
-	}
 	return ret
 }
 
@@ -306,7 +303,7 @@ func (node *BaseNode) Clone() Node {
 }
 
 // Parse builds the nodes structure and then calls parse on all it's child nodes
-func (node *BaseNode) Parse(ctx NodeContext) error {
+func (node *BaseNode) Parse(ctx ParseNodeContext) error {
 	for _, child := range node.Children() {
 		err := child.Parse(ctx)
 		if err != nil {
@@ -317,7 +314,7 @@ func (node *BaseNode) Parse(ctx NodeContext) error {
 }
 
 // Instance takes parameters from the node context and replaces template parameteres
-func (node *BaseNode) Instance(ctx NodeContext) error {
+func (node *BaseNode) Instance(ctx InstNodeContext) error {
 	AddClass(node, ctx.componentScope)
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
 	for _, attr := range node.Attrs() {
@@ -377,6 +374,7 @@ func (node *BaseNode) Render() string {
 	return ret
 }
 
+// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
 func (node *BaseNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	for _, child := range node.Children() {
 		ctx.callerType = BaseType
@@ -488,6 +486,7 @@ func GetAttr(node Node, key string) (bool, *html.Attribute) {
 	return false, nil
 }
 
+// AddClass adds the class string to the nodes class attribute
 func AddClass(node Node, class string) {
 	classes := []string{}
 	for _, attr := range node.Attrs() {

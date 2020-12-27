@@ -14,7 +14,7 @@ type ImportNode struct {
 }
 
 // Parse validates the import node and builds all the related context nodes
-func (node *ImportNode) Parse(ctx NodeContext) error {
+func (node *ImportNode) Parse(ctx ParseNodeContext) error {
 	hasTag, tagAttr := GetAttr(node, "tag")
 	if !hasTag {
 		return fmt.Errorf("error at node %s, import node must have a tag attribute", node)
@@ -58,6 +58,7 @@ func (node *ImportNode) Parse(ctx NodeContext) error {
 	return node.BaseNode.Parse(ctx)
 }
 
+// Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *ImportNode) Clone() Node {
 	clone := ImportNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},

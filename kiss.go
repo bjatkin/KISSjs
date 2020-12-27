@@ -36,16 +36,18 @@ func main() {
 		return
 	}
 
-	ctx := NodeContext{
-		path:       getPath(args.entry),
-		Parameters: globals,
+	pctx := ParseNodeContext{
+		path: getPath(args.entry),
 	}
-	err = root.Parse(ctx)
+	err = root.Parse(pctx)
 	if err != nil {
 		fmt.Printf("There was an error parsing the structure: %s\n", err)
 		return
 	}
-	err = root.Instance(ctx)
+	ictx := InstNodeContext{
+		Parameters: globals,
+	}
+	err = root.Instance(ictx)
 	if err != nil {
 		fmt.Printf("There was an error instancing the structure: %s\n", err)
 		return
@@ -217,7 +219,25 @@ func convertComponents(root Node) (Node, error) {
 		}
 		for _, tag := range tags {
 			if strings.ToLower(node.Data()) == strings.ToLower(tag) {
-				ToComponentNode(node)
+				comp := NewNode(node.Data(), ComponentType, node.Attrs()...)
+				comp.SetParent(node.Parent())
+				if node.Parent() != nil && node.PrevSibling() == nil {
+					node.Parent().SetFirstChild(comp)
+				}
+				comp.SetFirstChild(node.FirstChild())
+				for _, child := range node.Children() {
+					child.SetParent(comp)
+				}
+				comp.SetPrevSibling(node.PrevSibling())
+				if node.PrevSibling() != nil {
+					node.PrevSibling().SetNextSibling(comp)
+				}
+				comp.SetNextSibling(node.NextSibling())
+				if node.NextSibling() != nil {
+					node.NextSibling().SetPrevSibling(comp)
+				}
+
+				comp.SetVisible(false)
 			}
 		}
 	}
@@ -281,8 +301,10 @@ type File struct {
 	Remote  bool
 }
 
+// FileList type so I can add methods
 type FileList []*File
 
+// Merge merges a new file into the file list
 func (files FileList) Merge(add *File) FileList {
 	for _, file := range files {
 		if file.Name == add.Name &&
@@ -295,6 +317,7 @@ func (files FileList) Merge(add *File) FileList {
 	return append([]*File{add}, files...)
 }
 
+// WriteFile writes all the generated files to the dir
 func (file *File) WriteFile(dir string) error {
 	if file.Remote {
 		return fmt.Errorf("error writing %s, can not write remote files", file.Name)
