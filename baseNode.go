@@ -327,7 +327,7 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 			pnode, ok := ctx.Parameters[string(match[1:len(match)-1])]
 			if ok {
 				param := ""
-				if len(param) == 1 {
+				if len(pnode) == 1 {
 					param = pnode[0].Data()
 				}
 				if len(pnode) > 1 {

@@ -10,6 +10,7 @@
 
 # TODO
  - [ ] Add a default component so any unpassed parameter can still be set
+ - [ ] I'm adding an excessive number of classes to deeply nested elements, this will probably negatively impact performance
  - [ ] If a property has no value the value defaults to it's name e.g. class="{long}" and then < p long > makes < p class="long" >
  - [ ] Add in a CSS Parser to make the CSS bundling more robust
  - [ ] Move the JS Parse to it's own module to clean up the naming
@@ -26,3 +27,5 @@
 # BUGS
  - [x] Index out of range[0] with length 0 error when paramter node has no child nodes
  - [x] Instanced components do not copy child node parameters
+ - [x] Attribute parameters are no longer working in some cases
+ - [ ] Auto create dist folder if it does not exsist
