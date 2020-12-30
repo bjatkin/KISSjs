@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                background-color: gray;
+            }
+        </style>
+    </head>
+    <body>
+        <component tag="popup" src="popup.html"></component>
+        <popup title="test 1">
+            <content>
+                <hr>
+                <p>This is terible content</p>
+            </content>
+        </popup>
+        <popup title="test 2">
+            <content>
+                <hr>
+                <component src="test.html"></component>
+            </content>
+        </popup>
+        <popup title="test 3">
+            <content>
+                <component src="test.html"></component>
+            </content>
+        </popup>
+    </body>
+</html>
