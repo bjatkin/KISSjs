@@ -28,4 +28,5 @@
  - [x] Index out of range[0] with length 0 error when paramter node has no child nodes
  - [x] Instanced components do not copy child node parameters
  - [x] Attribute parameters are no longer working in some cases
- - [ ] Auto create dist folder if it does not exsist
+ - [x] Auto create dist folder if it does not exsist
+ - [ ] Move to reporting bugs through github
