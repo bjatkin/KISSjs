@@ -1,13 +1,5 @@
 # KISSjs a simple framework
 
-# Terminology
-   Tokenize - Extract and mark each token in the HTML, CSS or JS file
-   Parse - Expand or convert a lower level representation into a higher level representation
-   Convert - Generate a final, correct structure from the raw HTML, JS and CSS files
-   Instance - Replace template fields with passed parameters
-   Remote - A file that is not available for compilation or bunding locally
-   Render - Take the datastructure and convert it into plain text HTML, JS, and CSS
-
 # TODO
  - [ ] Add a default component so any unpassed parameter can still be set
  - [ ] I'm adding an excessive number of classes to deeply nested elements, this will probably negatively impact performance
@@ -23,10 +15,3 @@
  - [x] Having some way to import a component and then instantly instance it would be nice
             Potential syntax < component src="only_once.html" atrib="test" ></>
  - [x] Fix the docstrings
-
-# BUGS
- - [x] Index out of range[0] with length 0 error when paramter node has no child nodes
- - [x] Instanced components do not copy child node parameters
- - [x] Attribute parameters are no longer working in some cases
- - [x] Auto create dist folder if it does not exsist
- - [ ] Move to reporting bugs through github

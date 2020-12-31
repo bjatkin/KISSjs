@@ -224,17 +224,17 @@ func (node *BaseNode) InsertBefore(new, child Node) error {
 	check := node.FirstChild()
 	for check != nil {
 		if check == child {
-			prev := check.PrevSibling()
+			prev := child.PrevSibling()
 			if prev != nil {
 				prev.SetNextSibling(new)
 			} else {
-				node.Parent().SetFirstChild(new)
+				node.SetFirstChild(new)
 			}
 			new.SetPrevSibling(prev)
-			check.SetPrevSibling(new)
+			child.SetPrevSibling(new)
 
 			new.SetParent(node)
-			new.SetNextSibling(check)
+			new.SetNextSibling(child)
 
 			return nil
 		}

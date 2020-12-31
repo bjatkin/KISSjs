@@ -53,10 +53,6 @@ func main() {
 		return
 	}
 
-	// for _, node := range root.Descendants() {
-	// 	node.SetVisible(true)
-	// }
-
 	err = Render(args.output, root)
 	if err != nil {
 		fmt.Printf("There was an error writing the output files, %s", err)
@@ -195,8 +191,6 @@ func convertInstanceComponents(root Node) (Node, error) {
 				continue
 			}
 
-			fmt.Println(node)
-			fmt.Println(node.Parent())
 			tagName := "tag-" + randomID(6)
 			attrs := node.Attrs()
 			add := NewNode(tagName, BaseType, attrs...)
@@ -214,10 +208,6 @@ func convertInstanceComponents(root Node) (Node, error) {
 			if err != nil {
 				return nil, err
 			}
-
-			fmt.Println(add)
-			fmt.Println(add.Parent())
-			fmt.Println("-------------------------")
 		}
 	}
 
