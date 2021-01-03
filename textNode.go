@@ -22,9 +22,9 @@ func (node *TextNode) Instance(ctx InstNodeContext) error {
 			for _, paramNode := range paramNodes {
 				node.AppendChild(paramNode.Clone())
 			}
-
-			node.SetVisible(false)
 		}
+
+		node.SetVisible(false)
 	}
 
 	return node.BaseNode.Instance(ctx)

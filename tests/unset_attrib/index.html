@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <component tag="test">
+            <style>
+                p {
+                    color: #000000"@c@";
+                }
+            </style>
+            <p>{a}</p>
+            <p>{b}</p>
+            <script>
+                alert("d is $d$");
+            </script>
+        </component>
+
+        <test a="hello" b="world" c="88" d="hello"></test>
+        <test a="goodbye!"></test>
+    </body>
+</html>

@@ -9,8 +9,8 @@ import (
 // ComponentNode is a node for all components that match imports nodes
 type ComponentNode struct {
 	BaseNode
-	NoBundleID          string
-	NoBundle, NoCompile bool
+	TempNodes []Node
+	TempAttr  []Node
 }
 
 // Parse uses the it's class to add a root component and then calls parse on all it's children
@@ -31,6 +31,9 @@ func (node *ComponentNode) Parse(ctx ParseNodeContext) error {
 			break
 		}
 	}
+
+	// Collect all the attributes here
+	node = collectNodes(node, root)
 
 	return nil
 }
@@ -90,19 +93,39 @@ func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 	return nil
 }
 
+func collectNodes(node *ComponentNode, root Node) *ComponentNode {
+	// Collect all the attributes here
+	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
+	descs := root.Descendants()
+	for i := 0; i < len(descs); i++ {
+		if re.Match([]byte(descs[i].Data())) {
+			node.TempNodes = append(node.TempNodes, descs[i])
+		}
+		for _, attrib := range descs[i].Attrs() {
+			if re.Match([]byte(attrib.Val)) {
+				node.TempAttr = append(node.TempAttr, descs[i])
+			}
+		}
+	}
+
+	return node
+}
+
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *ComponentNode) Clone() Node {
-	clone := ComponentNode{
+	clone := &ComponentNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
+	var root Node
 	for _, child := range node.Children() {
 		clone.AppendChild(child.Clone())
+		if child.Data() == "root" {
+			root = child
+		}
 	}
 
-	clone.NoBundleID = node.NoBundleID
-	clone.NoBundle = node.NoBundle
-	clone.NoCompile = node.NoCompile
+	clone = collectNodes(clone, root)
 
-	return &clone
+	return clone
 }

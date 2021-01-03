@@ -324,9 +324,9 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 	for _, attr := range node.Attrs() {
 		matches := re.FindAll([]byte(attr.Val), -1)
 		for _, match := range matches {
+			param := ""
 			pnode, ok := ctx.Parameters[string(match[1:len(match)-1])]
 			if ok {
-				param := ""
 				if len(pnode) == 1 {
 					param = pnode[0].Data()
 				}
@@ -336,8 +336,8 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 				if len(pnode) == 1 && pnode[0].Type() != TextType {
 					return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
 				}
-				attr.Val = strings.ReplaceAll(attr.Val, string(match), param)
 			}
+			attr.Val = strings.ReplaceAll(attr.Val, string(match), param)
 		}
 	}
 

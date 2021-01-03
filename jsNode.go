@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -74,16 +75,27 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 
 // Instance replaces props in a node with params
 func (node *JSNode) Instance(ctx InstNodeContext) error {
+	re := regexp.MustCompile(`\$[_a-zA-Z][_a-zA-Z0-9]*\$`)
 	for i := 0; i < len(node.Script.lines); i++ {
 		line := &node.Script.lines[i]
 		for j := 0; j < len(line.value); j++ {
 			tok := &line.value[j]
-			for name, param := range ctx.Parameters {
+			matches := re.FindAll([]byte(tok.value), -1)
+			for _, match := range matches {
 				val := ""
-				if len(param) > 0 {
-					val = param[0].Data()
+				pnode, ok := ctx.Parameters[string(match[1:len(match)-1])]
+				if ok {
+					if len(pnode) == 1 {
+						val = pnode[0].Data()
+					}
+					if len(pnode) > 1 {
+						return fmt.Errorf("error at node %s, tried to replace %s with multiple param nodes", node, match)
+					}
+					if len(pnode) == 1 && pnode[0].Type() != TextType {
+						return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
+					}
 				}
-				tok.value = strings.ReplaceAll(tok.value, "$"+name+"$", val)
+				tok.value = strings.ReplaceAll(tok.value, string(match), val)
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 )
 
@@ -60,23 +61,29 @@ func (node *CSSNode) Parse(ctx ParseNodeContext) error {
 
 // Instance takes parameters from the node context and replaces template parameteres
 func (node *CSSNode) Instance(ctx InstNodeContext) error {
+	re := regexp.MustCompile(`"@[_a-zA-Z][_a-zA-Z0-9]*@"`)
 	for i := 0; i < len(node.Rules); i++ {
 		rule := node.Rules[i]
 		rule.AddClass(ctx.componentScope)
 		for j := 0; j < len(rule.Styles); j++ {
 			style := &rule.Styles[j]
 			for k := 0; k < len(style.Value); k++ {
-				val := &style.Value
-				for name, param := range ctx.Parameters {
+				matches := re.FindAll([]byte(style.Value), -1)
+				for _, match := range matches {
 					p := ""
-					if len(param) > 0 {
-						p = param[0].Data()
+					pnode, ok := ctx.Parameters[string(match[2:len(match)-2])]
+					if ok {
+						if len(pnode) == 1 {
+							p = pnode[0].Data()
+						}
+						if len(pnode) > 1 {
+							return fmt.Errorf("error at node %s, tried to replace %s with multiple param nodes", node, match)
+						}
+						if len(pnode) == 1 && pnode[0].Type() != TextType {
+							return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
+						}
 					}
-					*val = strings.ReplaceAll(
-						*val,
-						"\"@"+name+"@\"",
-						p,
-					)
+					style.Value = strings.ReplaceAll(style.Value, string(match), p)
 				}
 			}
 		}
