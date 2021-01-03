@@ -355,12 +355,6 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 func (node *BaseNode) Render() string {
 	ret := ""
 	if node.visible {
-		if node.Data() == "br" {
-			return "<br/>"
-		}
-		if node.Data() == "hr" {
-			return "<hr>"
-		}
 		ret += "<" + node.Data()
 		for _, attr := range node.attr {
 			if len(attr.Val) == 0 {
@@ -377,6 +371,12 @@ func (node *BaseNode) Render() string {
 
 	for _, child := range node.Children() {
 		ret += child.Render()
+	}
+
+	if node.Data() == "hr" ||
+		node.Data() == "br" ||
+		node.Data() == "link" {
+		return ret
 	}
 
 	if node.visible {
