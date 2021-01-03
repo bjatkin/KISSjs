@@ -27,7 +27,7 @@ func ToNodeType(node *html.Node) NodeType {
 		return TextType
 	}
 	data := strings.ToLower(node.Data)
-	if data == "component" {
+	if data == "comp" {
 		return ImportType
 	}
 	if data == "style" {

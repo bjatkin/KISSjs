@@ -60,6 +60,8 @@ func main() {
 	}
 }
 
+const comp = "comp"
+
 func parseEntryFile(file string) (Node, error) {
 	data, err := os.Open(file)
 	if err != nil {
@@ -156,7 +158,7 @@ func convertNodeTree(parent Node, node *html.Node) Node {
 func hoistImports(root Node) Node {
 	imports := []Node{}
 	for _, node := range root.Descendants() {
-		if strings.ToLower(node.Data()) == "component" {
+		if strings.ToLower(node.Data()) == comp {
 			children := node.Children()
 			if len(children) > 0 {
 				root := NewNode("root", BaseType)
@@ -185,7 +187,7 @@ func convertInstanceComponents(root Node) (Node, error) {
 	desc := root.Descendants()
 	for i := 0; i < len(desc); i++ {
 		node := desc[i]
-		if strings.ToLower(node.Data()) == "component" {
+		if strings.ToLower(node.Data()) == comp {
 			hasTag, _ := GetAttr(node, "tag")
 			if hasTag {
 				continue
@@ -217,7 +219,7 @@ func convertInstanceComponents(root Node) (Node, error) {
 func convertComponents(root Node) (Node, error) {
 	tags := []string{}
 	for _, node := range root.Descendants() {
-		if strings.ToLower(node.Data()) == "component" {
+		if strings.ToLower(node.Data()) == comp {
 			hasTag, tagAttr := GetAttr(node, "tag")
 			if !hasTag {
 				return nil, fmt.Errorf("component node missing tag value %s", node)
@@ -446,7 +448,7 @@ func validImportNodes(nodes []*html.Node) error {
 func getImportNodes(root *html.Node) ([]*html.Node, error) {
 	importNodes := []*html.Node{}
 	for _, node := range listNodes(root) {
-		if node.Data == "component" {
+		if node.Data == comp {
 			add := true
 			for _, iNode := range importNodes {
 				iTag := getAttr(iNode, "tag")
