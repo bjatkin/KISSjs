@@ -56,6 +56,9 @@ func (css *CSSRule) String() string {
 
 // ParseCSS converts a string of css into css rules
 func ParseCSS(css string) ([]*CSSRule, error) {
+	//
+	// TODO: this should be much more robuts and should probably be similar to how we parse JS
+	// -bja 01.04.2021
 	ret := []*CSSRule{}
 	for _, rule := range strings.Split(css, "}") {
 		rule = strings.TrimSpace(rule)

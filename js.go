@@ -5,6 +5,10 @@ import (
 	"regexp"
 )
 
+//
+//	TODO: this should probably live in a sub package rather than the main package. this would probably clear up the namespace a lot to move it
+//  -bja 01.04.2021
+
 const (
 	tokenTypeOpenImport = iota
 	tokenTypeCloseImport
