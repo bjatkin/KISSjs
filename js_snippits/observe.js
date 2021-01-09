@@ -1,3 +1,5 @@
+// observe will allow 1 way binding between the JS -> HTML
+// we don't do 2 way binding because HTML -> JS binding is already well supported by default
 var observe = (obj) => {
     let pxy = new Proxy(obj, {
         set: function(obj, prop, value) {
