@@ -5,9 +5,10 @@ import (
 )
 
 type kissArgs struct {
-	output  string
-	entry   string
-	globals string
+	output       string
+	entry        string
+	globals      string
+	viewLocation string
 }
 
 func validArgs(args []string) bool {
@@ -19,24 +20,24 @@ func validArgs(args []string) bool {
 	}
 
 	for i, arg := range args {
-		if i == 2 || i == 4 {
-			if len(arg) != 2 {
-				return false
-			}
-			if arg[0] != '-' {
-				return false
-			}
-			if arg[1] != 'o' && arg[1] != 'g' {
-				return false
-			}
-			if len(args) < i+2 {
-				return false
-			}
-		}
-		if i == 1 || i == 3 {
+		if i+1%2 == 0 {
 			if arg[0] == '-' {
 				return false
 			}
+			continue
+		}
+
+		if len(arg) != 2 {
+			return false
+		}
+		if arg[0] != '-' {
+			return false
+		}
+		if arg[1] != 'o' && arg[1] != 'g' && arg[1] != 'v' {
+			return false
+		}
+		if len(args) < i+2 {
+			return false
 		}
 	}
 	return true
@@ -57,6 +58,9 @@ func parseArgs(args []string) (kissArgs, error) {
 		}
 		if arg == "-g" {
 			ret.globals = args[i+1]
+		}
+		if arg == "-v" {
+			ret.viewLocation = args[i+1]
 		}
 	}
 	return ret, nil
