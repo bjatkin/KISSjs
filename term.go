@@ -13,14 +13,23 @@ type kissArgs struct {
 
 func validArgs(args []string) bool {
 	if len(args) < 2 {
+		// we mucst have at least an entry file
 		return false
 	}
-	if len(args) > 6 {
+	if len(args)%2 == 1 {
+		// we should have matching argument and values
+		// e.g. -g globals
 		return false
 	}
 
 	for i, arg := range args {
-		if i+1%2 == 0 {
+		if i == 0 {
+			// this is the dir of the program
+			continue
+		}
+
+		if (i+1)%2 == 0 {
+			// These are the argument values
 			if arg[0] == '-' {
 				return false
 			}
@@ -28,15 +37,15 @@ func validArgs(args []string) bool {
 		}
 
 		if len(arg) != 2 {
+			// args should be in the form -O
 			return false
 		}
 		if arg[0] != '-' {
+			// args should be in the form -O
 			return false
 		}
 		if arg[1] != 'o' && arg[1] != 'g' && arg[1] != 'v' {
-			return false
-		}
-		if len(args) < i+2 {
+			// only -o, -g, and -v allowed
 			return false
 		}
 	}

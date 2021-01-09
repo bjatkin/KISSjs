@@ -14,7 +14,7 @@ func main() {
 	args, err := parseArgs(os.Args)
 
 	if err != nil {
-		fmt.Printf("Usage:\n\tkiss entry [-o output] [-g globals] [-v view location]\n")
+		fmt.Printf("Usage:\n\tkiss entry [-o output] [-g globals] [-v view_location]\n")
 		return
 	}
 
