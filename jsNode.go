@@ -1,6 +1,7 @@
 package main
 
 import (
+	"KISS/js"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -13,7 +14,7 @@ import (
 type JSNode struct {
 	BaseNode
 	Src    string
-	Script JSScript
+	Script js.Script
 	Remote bool
 }
 
@@ -52,18 +53,18 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 		ctx.path = getPath(node.Src)
 	}
 
-	tokens := tokenizeJSScript(script)
+	tokens := js.LexScript(script)
 	var err error
-	node.Script, err = parseJSTokens(tokens)
+	node.Script, err = js.ParseTokens(tokens)
 	if err != nil {
 		return fmt.Errorf("error at node %s, %s", node, err)
 	}
 
 	// Add children
-	for _, i := range node.Script.imports {
+	for _, i := range node.Script.Imports {
 		newNode := NewNode("script", JSType)
-		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.src}}
-		if i.remote {
+		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.Src}}
+		if i.Remote {
 			attrs = append(attrs, &html.Attribute{Key: "remote"})
 		}
 		newNode.SetAttrs(attrs)
@@ -76,11 +77,11 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 // Instance replaces props in a node with params
 func (node *JSNode) Instance(ctx InstNodeContext) error {
 	re := regexp.MustCompile(`\$[_a-zA-Z][_a-zA-Z0-9]*\$`)
-	for i := 0; i < len(node.Script.lines); i++ {
-		line := &node.Script.lines[i]
-		for j := 0; j < len(line.value); j++ {
-			tok := &line.value[j]
-			matches := re.FindAll([]byte(tok.value), -1)
+	for i := 0; i < len(node.Script.Lines); i++ {
+		line := &node.Script.Lines[i]
+		for j := 0; j < len(line.Value); j++ {
+			tok := &line.Value[j]
+			matches := re.FindAll([]byte(tok.Value), -1)
 			for _, match := range matches {
 				val := ""
 				pnode, ok := ctx.Parameters[string(match[1:len(match)-1])]
@@ -95,7 +96,7 @@ func (node *JSNode) Instance(ctx InstNodeContext) error {
 						return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
 					}
 				}
-				tok.value = strings.ReplaceAll(tok.value, string(match), val)
+				tok.Value = strings.ReplaceAll(tok.Value, string(match), val)
 			}
 		}
 	}
@@ -162,7 +163,7 @@ func (node *JSNode) Clone() Node {
 
 	clone.Src = node.Src
 	clone.Remote = node.Remote
-	clone.Script = node.Script.clone()
+	clone.Script = node.Script.Clone()
 
 	return &clone
 }
