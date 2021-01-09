@@ -53,7 +53,7 @@ func main() {
 		return
 	}
 
-	err = Render(args.output, root)
+	err = Render(args.output, args.viewLocation, root)
 	if err != nil {
 		fmt.Printf("There was an error writing the output files, %s", err)
 		return
@@ -355,7 +355,7 @@ func (file *File) WriteFile(dir string) error {
 }
 
 // Render takes a node and renders the full tree into an array of files
-func Render(outputDir string, root Node) error {
+func Render(outputDir, viewLocation string, root Node) error {
 	var head, body Node
 	for _, desc := range root.Descendants() {
 		if desc.Data() == "head" {
@@ -388,7 +388,7 @@ func Render(outputDir string, root Node) error {
 				name += ".css"
 			}
 			head.AppendChild(
-				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: name}))
+				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/" + name}))
 		}
 		if entry.Type == JSFileType {
 			name := entry.Name
@@ -396,7 +396,7 @@ func Render(outputDir string, root Node) error {
 				name += ".js"
 			}
 			body.AppendChild(
-				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: name}))
+				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: viewLocation + "/" + name}))
 
 		}
 	}
