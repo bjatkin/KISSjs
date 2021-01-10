@@ -73,7 +73,7 @@ var tokenPatterns = []tokenPattern{
 	tokenPattern{pixels, regexp.MustCompile(`^\d+px`)},
 	tokenPattern{idName, regexp.MustCompile(`^#[a-zA-Z0-9_-]+`)},
 	tokenPattern{className, regexp.MustCompile(`^\.[a-zA-Z0-9_-]+`)},
-	tokenPattern{pseudoClass, regexp.MustCompile(`^:[a-zA-Z0-9_-]+`)},
+	tokenPattern{pseudoClass, regexp.MustCompile(`^:[a-zA-Z0-9_\(\)-]+`)},
 	tokenPattern{pseudoElm, regexp.MustCompile(`^::[a-zA-Z0-9_-]+`)},
 	tokenPattern{property, regexp.MustCompile(`^[a-zA-Z0-9_-]+:`)},
 	tokenPattern{comment, regexp.MustCompile(`(?ms)^/\*.*\*/`)},
@@ -311,9 +311,11 @@ func parseRule(css []Token) (int, Rule) {
 	i, count := 0, 0
 	count, ret.Selectors = parseSelector(css)
 	i += count
-	_, ret.Styles = parseBlock(css[i:])
 
-	return 0, ret
+	count, ret.Styles = parseBlock(css[i:])
+	i += count
+
+	return i, ret
 }
 
 func parseSelector(css []Token) (int, []Selector) {

@@ -331,6 +331,46 @@ func TestParseRule(t *testing.T) {
 				Styles:    []Style{Style{Prop: "color", Val: "black"}},
 			},
 		},
+		test{
+			css: `button[class|="p"]:hover .win:nth-child(2) {
+				background-color: #ffffff33;
+				width: 100%;
+				border: 1px solid #a3a3a3;
+				animation: zoom 1s;
+			}`,
+			check: Rule{
+				Selectors: []Selector{
+					Selector{Sel: "button[class|=\"p\"]", PostSel: ":hover"},
+					Selector{Sel: ".win", PostSel: ":nth-child(2)"},
+				},
+				Styles: []Style{
+					Style{Prop: "background-color", Val: "#ffffff33"},
+					Style{Prop: "width", Val: "100%"},
+					Style{Prop: "border", Val: "1px solid #a3a3a3"},
+					Style{Prop: "animation", Val: "zoom 1s"},
+				},
+			},
+		},
+		test{
+			css: `select::after table>tr+button {
+				position: absolute;
+				top: 10px;
+				left: 10px;
+				test: #fff url(xml+svg;stuffshere) after crap/100px;
+			}`,
+			check: Rule{
+				Selectors: []Selector{
+					Selector{Sel: "select", PostSel: "::after"},
+					Selector{Sel: "table>tr+button"},
+				},
+				Styles: []Style{
+					Style{Prop: "position", Val: "absolute"},
+					Style{Prop: "top", Val: "10px"},
+					Style{Prop: "left", Val: "10px"},
+					Style{Prop: "test", Val: "#fff url(xml+svg;stuffshere) after crap/100px"},
+				},
+			},
+		},
 	}
 
 	for i, run := range tests {
