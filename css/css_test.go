@@ -454,6 +454,27 @@ func TestParseAnim(t *testing.T) {
 				},
 			},
 		},
+		test{
+			css: `@keyframes long-nameThat_will-not_FAIL {
+				0% {
+					test: long value with l00ts of weird % stuff/10px;
+				}
+				50% {
+					different: value;
+				}
+			}`,
+			check: Anim{
+				Name: "long-nameThat_will-not_FAIL",
+				Frames: []Frame{
+					Frame{Time: "0%", Styles: []Style{
+						Style{Prop: "test", Val: "long value with l00ts of weird % stuff/10px"},
+					}},
+					Frame{Time: "50%", Styles: []Style{
+						Style{Prop: "different", Val: "value"},
+					}},
+				},
+			},
+		},
 	}
 
 	for i, run := range tests {
@@ -489,6 +510,189 @@ func TestParseAnim(t *testing.T) {
 				}
 
 			}
+		}
+	}
+}
+
+func TestParse(t *testing.T) {
+	type test struct {
+		css   string
+		check Script
+	}
+	tests := []test{
+		test{
+			css: `div.move1 button.move2:nth-child(2) {
+				width: 50px;
+				height: 50px;
+				background-color: #a0f;
+				animation: zoom 2s;
+				position: absolute;
+				top: 100px;
+				left: 100px;
+			}
+			
+			@keyframes zoom {
+				0% {
+					top: 0px;
+					left: 0px;
+				}
+				100% {
+					top: 100px;
+					left: 100px;
+				}
+			}`,
+			check: Script{
+				Rules: []Rule{
+					Rule{
+						Selectors: []Selector{
+							Selector{Sel: "div.move1"},
+							Selector{Sel: "button.move2", PostSel: ":nth-child(2)"},
+						},
+						Styles: []Style{
+							Style{Prop: "width", Val: "50px"},
+							Style{Prop: "height", Val: "50px"},
+							Style{Prop: "background-color", Val: "#a0f"},
+							Style{Prop: "animation", Val: "zoom 2s"},
+							Style{Prop: "position", Val: "absolute"},
+							Style{Prop: "top", Val: "100px"},
+							Style{Prop: "left", Val: "100px"},
+						},
+					},
+				},
+				Anims: []Anim{
+					Anim{
+						Name: "zoom",
+						Frames: []Frame{
+							Frame{Time: "0%",
+								Styles: []Style{
+									Style{Prop: "top", Val: "0px"},
+									Style{Prop: "left", Val: "0px"},
+								},
+							},
+							Frame{Time: "100%",
+								Styles: []Style{
+									Style{Prop: "top", Val: "100px"},
+									Style{Prop: "left", Val: "100px"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i, run := range tests {
+		tokens := Lex(run.css)
+		script, err := Parse(tokens)
+
+		if err != nil {
+			t.Errorf("error parsing css script %s", err)
+		}
+
+		if len(script.Rules) != len(run.check.Rules) {
+			t.Errorf("(%d) wrong number of rules got %d expected %d", i, len(script.Rules), len(run.check.Rules))
+		}
+
+		if len(script.Anims) != len(run.check.Anims) {
+			t.Errorf("(%d) wrong number of rules got %d expected %d", i, len(script.Anims), len(run.check.Anims))
+		}
+
+		for ii, rule := range script.Rules {
+			if len(rule.Selectors) != len(run.check.Rules[ii].Selectors) {
+				t.Errorf(
+					"(%d|%d) wrong number of selectors got %d expected %d",
+					i, ii, len(rule.Selectors), len(run.check.Rules[ii].Selectors),
+				)
+			}
+
+			if len(rule.Styles) != len(run.check.Rules[ii].Styles) {
+				t.Errorf(
+					"(%d|%d) wrong number of styles got %d expected %d",
+					i, ii, len(rule.Styles), len(run.check.Rules[ii].Styles),
+				)
+			}
+
+			for iii, sel := range rule.Selectors {
+				if sel.Sel != run.check.Rules[ii].Selectors[iii].Sel {
+					t.Errorf(
+						"(%d|%d|%d) wrong selector got %s expected %s",
+						i, ii, iii, sel.Sel, run.check.Rules[ii].Selectors[iii].Sel,
+					)
+				}
+
+				if sel.PostSel != run.check.Rules[ii].Selectors[iii].PostSel {
+					t.Errorf(
+						"(%d|%d|%d) wrong post selector got %s expected %s",
+						i, ii, iii, sel.PostSel, run.check.Rules[ii].Selectors[iii].PostSel,
+					)
+				}
+			}
+
+			for iii, style := range rule.Styles {
+				if style.Prop != run.check.Rules[ii].Styles[iii].Prop {
+					t.Errorf(
+						"(%d|%d|%d) wrong style property got %s expected %s",
+						i, ii, iii, style.Prop, run.check.Rules[ii].Styles[iii].Prop,
+					)
+				}
+
+				if style.Val != run.check.Rules[ii].Styles[iii].Val {
+					t.Errorf(
+						"(%d|%d|%d) wrong style value got %s expected %s",
+						i, ii, iii, style.Val, run.check.Rules[ii].Styles[iii].Val,
+					)
+				}
+			}
+		}
+
+		for ii, anim := range script.Anims {
+			if anim.Name != run.check.Anims[ii].Name {
+				t.Errorf(
+					"(%d|%d) wrong animation name got %s expected %s",
+					i, ii, anim.Name, run.check.Anims[ii].Name,
+				)
+			}
+
+			if len(anim.Frames) != len(run.check.Anims[ii].Frames) {
+				t.Errorf(
+					"(%d|%d) wrong number of animation frames got %d expected %d",
+					i, ii, len(anim.Frames), len(run.check.Anims[ii].Frames),
+				)
+			}
+
+			for iii, frame := range anim.Frames {
+				if frame.Time != run.check.Anims[ii].Frames[iii].Time {
+					t.Errorf(
+						"(%d|%d|%d) wrong animation frame time got %s expected %s",
+						i, ii, iii, frame.Time, run.check.Anims[ii].Frames[iii].Time,
+					)
+				}
+
+				if len(frame.Styles) != len(run.check.Anims[ii].Frames[iii].Styles) {
+					t.Errorf(
+						"(%d|%d|%d) wrong number of animation frame styles got %d expected %d",
+						i, ii, iii, len(frame.Styles), len(run.check.Anims[ii].Frames[iii].Styles),
+					)
+				}
+
+				for iiii, style := range frame.Styles {
+					if style.Prop != run.check.Anims[ii].Frames[iii].Styles[iiii].Prop {
+						t.Errorf(
+							"(%d|%d|%d|%d) wrong animation frame style prop got %s expected %s",
+							i, ii, iii, iiii, style.Prop, run.check.Anims[ii].Frames[iii].Styles[iiii].Prop,
+						)
+					}
+
+					if style.Val != run.check.Anims[ii].Frames[iii].Styles[iiii].Val {
+						t.Errorf(
+							"(%d|%d|%d|%d) wrong animation frame style prop got %s expected %s",
+							i, ii, iii, iiii, style.Val, run.check.Anims[ii].Frames[iii].Styles[iiii].Val,
+						)
+					}
+				}
+			}
+
 		}
 	}
 }

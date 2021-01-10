@@ -1,6 +1,7 @@
 package main
 
 import (
+	"KISS/css"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -11,7 +12,7 @@ import (
 type CSSNode struct {
 	BaseNode
 	Href   string
-	Rules  []*CSSRule
+	Script css.Script
 	Remote bool
 }
 
@@ -35,26 +36,27 @@ func (node *CSSNode) Parse(ctx ParseNodeContext) error {
 	}
 
 	// extract the css rules
-	css := ""
+	cssString := ""
 	if node.FirstChild() != nil {
-		css = node.FirstChild().Data()
+		cssString = node.FirstChild().Data()
 		Detach(node.FirstChild())
 	}
 	if hasHref {
 		node.Href = ctx.path + hrefAttr.Val
 		styleBytes, err := ioutil.ReadFile(node.Href)
-		css = string(styleBytes)
+		cssString = string(styleBytes)
 		if err != nil {
 			return fmt.Errorf("error at node %s, %s", node, err)
 		}
 	}
 
-	rules, err := ParseCSS(css)
+	tokens := css.Lex(cssString)
+	script, err := css.Parse(tokens)
 	if err != nil {
 		return err
 	}
 
-	node.Rules = rules
+	node.Script = script
 
 	return nil
 }

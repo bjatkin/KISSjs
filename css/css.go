@@ -284,6 +284,13 @@ func Parse(css []Token) (Script, error) {
 	for i < len(css) {
 		start = i
 
+		count, anim := parseAnim(css[i:])
+		if count > 0 {
+			i += count
+			ret.Anims = append(ret.Anims, anim)
+			continue
+		}
+
 		count, rule := parseRule(css[i:])
 		if count > 0 {
 			i += count
@@ -291,12 +298,6 @@ func Parse(css []Token) (Script, error) {
 			continue
 		}
 
-		count, anim := parseAnim(css[i:])
-		if count > 0 {
-			i += count
-			ret.Anims = append(ret.Anims, anim)
-			continue
-		}
 		if i == start {
 			return Script{}, fmt.Errorf("failed to parse css token, '%s'", css[i].Value)
 		}
@@ -409,7 +410,7 @@ func parseBlock(css []Token) (int, []Style) {
 		}
 
 		if tok == closeBlock {
-			return i, ret
+			return i + 1, ret
 		}
 
 		i++
@@ -418,6 +419,10 @@ func parseBlock(css []Token) (int, []Style) {
 }
 
 func parseAnim(css []Token) (int, Anim) {
+	if css[0].Type != keyframe {
+		return 0, Anim{}
+	}
+
 	ret := Anim{Name: css[0].Value[11:]} // @keyframes [name is here]
 	i := 2                               //first two tokens should be 1) keyframe 2) openBlock
 	var count int
@@ -433,11 +438,12 @@ func parseAnim(css []Token) (int, Anim) {
 			return 0, Anim{}
 		}
 		count, frame.Styles = parseBlock(css[i:])
-		i += count + 1 // skip the trailing }
+		i += count
 
 		ret.Frames = append(ret.Frames, frame)
 		if css[i].Type == closeBlock {
-			return i, ret
+			// i+1 for the final trailing }
+			return i + 1, ret
 		}
 	}
 	return 0, Anim{}
