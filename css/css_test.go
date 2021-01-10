@@ -413,3 +413,82 @@ func TestParseRule(t *testing.T) {
 		}
 	}
 }
+
+func TestParseAnim(t *testing.T) {
+	type test struct {
+		css   string
+		check Anim
+	}
+
+	tests := []test{
+		test{
+			css: `@keyframes name {
+				0% {
+					background-color: #fff;
+					left: 0px;
+				}
+				20% {
+					background-color: #000;
+					left: 50px;
+				}
+				100% {
+					background-color: #777;
+					left: 80px;
+				}
+			}`,
+			check: Anim{
+				Name: "name",
+				Frames: []Frame{
+					Frame{Time: "0%", Styles: []Style{
+						Style{Prop: "background-color", Val: "#fff"},
+						Style{Prop: "left", Val: "0px"},
+					}},
+					Frame{Time: "20%", Styles: []Style{
+						Style{Prop: "background-color", Val: "#000"},
+						Style{Prop: "left", Val: "50px"},
+					}},
+					Frame{Time: "100%", Styles: []Style{
+						Style{Prop: "background-color", Val: "#777"},
+						Style{Prop: "left", Val: "80px"},
+					}},
+				},
+			},
+		},
+	}
+
+	for i, run := range tests {
+		tokens := Lex(run.css)
+		_, anim := parseAnim(tokens)
+
+		if anim.Name != run.check.Name {
+			t.Errorf("(%d) wrong animation name expecting %s but got %s", i, run.check.Name, anim.Name)
+		}
+
+		if len(anim.Frames) != len(run.check.Frames) {
+			t.Errorf("(%d) incorect number of frames got %d but expected %d", i, len(anim.Frames), len(run.check.Frames))
+		}
+
+		for ii, frame := range anim.Frames {
+
+			if frame.Time != run.check.Frames[ii].Time {
+				t.Errorf("(%d|%d) wrong animation frame percentage expecting %s but got %s", i, ii, run.check.Frames[ii].Time, frame.Time)
+			}
+
+			if len(frame.Styles) != len(run.check.Frames[ii].Styles) {
+				t.Errorf("(%d) incorect number of styles got %d but expected %d", i, len(frame.Styles), len(run.check.Frames[ii].Styles))
+			}
+
+			for iii, style := range frame.Styles {
+
+				if style.Prop != run.check.Frames[ii].Styles[iii].Prop {
+					t.Errorf("(%d|%d|%d) wrong style property expecting %s but got %s", i, ii, iii, run.check.Frames[ii].Styles[iii].Prop, style.Prop)
+				}
+
+				if style.Val != run.check.Frames[ii].Styles[iii].Val {
+					t.Errorf("(%d|%d|%d) wrong style value expecting %s but got %s", i, ii, iii, run.check.Frames[ii].Styles[iii].Val, style.Val)
+				}
+
+			}
+		}
+	}
+}

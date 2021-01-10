@@ -418,5 +418,27 @@ func parseBlock(css []Token) (int, []Style) {
 }
 
 func parseAnim(css []Token) (int, Anim) {
+	ret := Anim{Name: css[0].Value[11:]} // @keyframes [name is here]
+	i := 2                               //first two tokens should be 1) keyframe 2) openBlock
+	var count int
+	for i < len(css) {
+		if css[i].Type != percentage {
+			return 0, Anim{}
+		}
+		frame := Frame{}
+		frame.Time = css[i].Value
+		i++
+
+		if css[i].Type != openBlock {
+			return 0, Anim{}
+		}
+		count, frame.Styles = parseBlock(css[i:])
+		i += count + 1 // skip the trailing }
+
+		ret.Frames = append(ret.Frames, frame)
+		if css[i].Type == closeBlock {
+			return i, ret
+		}
+	}
 	return 0, Anim{}
 }
