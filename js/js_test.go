@@ -70,7 +70,7 @@ let a = 10`
 	}
 }
 
-func TestParseJSTokens(t *testing.T) {
+func TestParseTokens(t *testing.T) {
 	script := `
 	({KISSimport: "test.js", remote: true});
 	({KISSimport: "again.js", remote: false});
@@ -129,3 +129,5 @@ func TestParseJSTokens(t *testing.T) {
 		}
 	}
 }
+
+// TODO: we need better test coverage on this stuff

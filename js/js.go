@@ -224,8 +224,7 @@ func ParseTokens(script []Token) (Script, error) {
 	start := 0
 	for i < len(script) {
 		start = i
-		tok := script[i].Type
-		if tok == whiteSpace {
+		if script[i].Type == whiteSpace {
 			i++
 			continue
 		}

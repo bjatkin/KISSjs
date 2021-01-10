@@ -16,6 +16,12 @@ type CSSRule struct {
 	Styles   []CSSStyle
 }
 
+// CSSKeyframe is a keframe animation rule
+type CSSKeyframe struct {
+	Name      string
+	Keyframes [][]CSSStyle
+}
+
 func (css *CSSRule) clone() *CSSRule {
 	clone := &CSSRule{}
 	for _, sel := range css.Selector {
