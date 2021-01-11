@@ -597,7 +597,7 @@ func TestParse(t *testing.T) {
 		},
 		test{
 			css: `.dropimage {
-				background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHDV6Ii8+PHBhdCAyMCAwIDUgMTAtMzAgMCIvPjwvZz48L3N2Zz4=);
+				background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHDV6Ii8+PHBhdCAyMCAwIDUgMTAtMzAgMCIvPjwvZz48L3N2Zz4=)
 			}`,
 			check: Script{
 				Rules: []Rule{
@@ -671,7 +671,7 @@ func TestParse(t *testing.T) {
 
 				if style.Val != run.check.Rules[ii].Styles[iii].Val {
 					t.Errorf(
-						"(%d|%d|%d) wrong style value got %s expected %s",
+						"(%d|%d|%d) wrong style value got '%s' expected '%s'",
 						i, ii, iii, style.Val, run.check.Rules[ii].Styles[iii].Val,
 					)
 				}

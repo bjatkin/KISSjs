@@ -339,8 +339,14 @@ func lexValue(css []Token) (int, Token) {
 		leading = false
 
 		if tok == semiColon {
+			ret.Value = strings.TrimSpace(ret.Value)
 			return i + 1, ret
 		}
+		if tok == property || tok == closeBlock {
+			ret.Value = strings.TrimSpace(ret.Value)
+			return i, ret
+		}
+
 		ret.Value += css[i].Value
 		i++
 	}
