@@ -71,61 +71,90 @@ let a = 10`
 }
 
 func TestParseTokens(t *testing.T) {
-	script := `
-	({KISSimport: "test.js", remote: true});
-	({KISSimport: "again.js", remote: false});
-	({KISSimport: "last.js"});
-
-	let a = 10;
-	let b = "50";
-	console.log(a + b);
-	var t = test({
-		hi: 5,
-	});
-	`
-	imports := []Import{
-		Import{Src: "test.js", Remote: true},
-		Import{Src: "again.js", Remote: false},
-		Import{Src: "last.js"},
-	}
-	lines := []string{
-		"let a=10;",
-		"let b=\"50\";",
-		"console.log(a+b);",
-		"var t=test({",
-		"hi:5,",
-		"});",
-		"",
+	type test struct {
+		script     string
+		check      Script
+		checkLines []string
 	}
 
-	tokens := LexScript(script)
-	kissScript, err := ParseTokens(tokens)
-	if err != nil {
-		t.Errorf("there was an error parsing the js script %s", err)
-	}
-	if len(kissScript.Imports) != len(imports) {
-		t.Errorf("Expected %d imports, got %d", len(kissScript.Imports), len(imports))
-	}
-	if len(kissScript.Lines) != len(lines) {
-		t.Errorf("Expected %d lines, got %d", len(kissScript.Lines), len(lines))
+	tests := []test{
+		test{
+			script: `
+			({KISSimport: "test.js", remote: true});
+			({KISSimport: "again.js", remote: false});
+			({KISSimport: "last.js"});
+
+			let a = 10;
+			let b = "50"
+			console.log(a + b);
+			var t = test({
+				hi: 5,
+			});
+			`,
+			check: Script{
+				Imports: []Import{
+					Import{Src: "test.js", Remote: true},
+					Import{Src: "again.js", Remote: false},
+					Import{Src: "last.js"},
+				},
+			},
+			checkLines: []string{
+				"let a=10;",
+				"let b=\"50\";",
+				"console.log(a+b);",
+				"var t=test({",
+				"hi:5,",
+				"});",
+				"",
+			},
+		},
+		test{
+			script: `
+			if (object.good() &&
+				object.notBad()) {
+					let do = "a thing"
+				}
+			`,
+			check: Script{},
+			checkLines: []string{
+				"if(object.good()&&",
+				"object.notBad()){",
+				"let do=\"a thing\";",
+				"};",
+			},
+		},
 	}
 
-	for i := 0; i < len(imports); i++ {
-		if kissScript.Imports[i].Src != imports[i].Src {
-			t.Errorf("Expected src of %s, got %s", kissScript.Imports[i].Src, imports[i].Src)
+	for i, run := range tests {
+		tokens := LexScript(run.script)
+		kissScript, err := ParseTokens(tokens)
+		if err != nil {
+			t.Errorf("(%d) there was an error parsing the js script %s", i, err)
 		}
-		if kissScript.Imports[i].Remote != imports[i].Remote {
-			t.Errorf("Expected Remote to be %v, got %v", kissScript.Imports[i].Remote, imports[i].Remote)
+		if len(kissScript.Imports) != len(run.check.Imports) {
+			t.Errorf("(%d) Expected %d imports, got %d", i, len(run.check.Imports), len(kissScript.Imports))
 		}
-	}
+		if len(kissScript.Lines) != len(run.checkLines) {
+			t.Errorf("(%d) Expected %d lines, got %d", i, len(run.checkLines), len(kissScript.Lines))
+		}
 
-	for i := 0; i < len(lines); i++ {
-		line := ""
-		for _, v := range kissScript.Lines[i].Value {
-			line += v.Value
+		for i := 0; i < len(kissScript.Imports); i++ {
+			if kissScript.Imports[i].Src != run.check.Imports[i].Src {
+				t.Errorf("(%d) Expected src of %s, got %s", i, kissScript.Imports[i].Src, run.check.Imports[i].Src)
+			}
+			if kissScript.Imports[i].Remote != run.check.Imports[i].Remote {
+				t.Errorf("(%d) Expected Remote to be %v, got %v", i, kissScript.Imports[i].Remote, run.check.Imports[i].Remote)
+			}
 		}
-		if line != lines[i] {
-			t.Errorf("Expected line %s, got %s", lines[i], line)
+
+		for ii := 0; ii < len(kissScript.Lines); ii++ {
+			line := ""
+			for _, v := range kissScript.Lines[ii].Value {
+				line += v.Value
+			}
+			if line != run.checkLines[ii] {
+				t.Errorf("(%d|%d) Expected line %s, got %s", i, ii, run.checkLines[ii], line)
+			}
 		}
 	}
 }

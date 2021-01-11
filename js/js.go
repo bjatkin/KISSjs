@@ -29,6 +29,7 @@ const (
 	commentStart
 	blockCommentStart
 	blockCommentEnd
+	logicalOp
 	any
 )
 
@@ -66,6 +67,7 @@ var tokenPatterns = []tokenPattern{
 	tokenPattern{commentStart, regexp.MustCompile(`^\/\/`)},
 	tokenPattern{blockCommentStart, regexp.MustCompile(`^\/\*`)},
 	tokenPattern{blockCommentEnd, regexp.MustCompile(`^\*\/`)},
+	tokenPattern{logicalOp, regexp.MustCompile(`^(&&|\|\|)`)},
 	tokenPattern{any, regexp.MustCompile(`^.`)},
 }
 
@@ -308,6 +310,8 @@ func addSemiColons(lines []Line) []Line {
 		case comma:
 			add = false
 		case openImport:
+			add = false
+		case logicalOp:
 			add = false
 		}
 

@@ -63,6 +63,7 @@ func (node *CSSNode) Parse(ctx ParseNodeContext) error {
 
 // Instance takes parameters from the node context and replaces template parameteres
 func (node *CSSNode) Instance(ctx InstNodeContext) error {
+	// TODO: why is this function being called twice?
 	node.Script.AddClass(ctx.componentScope)
 
 	re := regexp.MustCompile(`"@[_a-zA-Z][_a-zA-Z0-9]*@"`)
