@@ -595,6 +595,23 @@ func TestParse(t *testing.T) {
 				},
 			},
 		},
+		test{
+			css: `.dropimage {
+				background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHDV6Ii8+PHBhdCAyMCAwIDUgMTAtMzAgMCIvPjwvZz48L3N2Zz4=);
+			}`,
+			check: Script{
+				Rules: []Rule{
+					Rule{
+						Selectors: []Selector{
+							Selector{Sel: ".dropimage"},
+						},
+						Styles: []Style{
+							Style{Prop: "background-image", Val: "url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHDV6Ii8+PHBhdCAyMCAwIDUgMTAtMzAgMCIvPjwvZz48L3N2Zz4=)"},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for i, run := range tests {
