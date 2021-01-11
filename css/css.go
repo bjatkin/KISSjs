@@ -199,6 +199,9 @@ func (script *Script) String() string {
 
 // AddClass add the class to all selectors in the script
 func (script *Script) AddClass(class string) {
+	if class == "" {
+		return
+	}
 	for i := 0; i < len(script.Rules); i++ {
 		for ii := 0; ii < len(script.Rules[i].Selectors); ii++ {
 			script.Rules[i].Selectors[ii].Sel += "." + class
@@ -275,7 +278,7 @@ func Lex(css string) []Token {
 	i = 0
 	for i < len(tokens) {
 		if tokens[i].Type == whiteSpace {
-			if i < len(tokens) && tokens[i+1].Type == openBlock {
+			if i+1 < len(tokens) && tokens[i+1].Type == openBlock {
 				i++
 				continue
 			}
