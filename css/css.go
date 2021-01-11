@@ -122,6 +122,90 @@ type Script struct {
 	Anims []Anim
 }
 
+// Clone creates a deep clone of a script
+func (script *Script) Clone() *Script {
+	ret := &Script{}
+	for _, rule := range script.Rules {
+		add := Rule{}
+		for _, sel := range rule.Selectors {
+			add.Selectors = append(
+				add.Selectors,
+				Selector{sel.Sel, sel.PostSel},
+			)
+		}
+		for _, style := range rule.Styles {
+			add.Styles = append(
+				add.Styles,
+				Style{style.Prop, style.Val},
+			)
+		}
+		ret.Rules = append(ret.Rules, add)
+	}
+
+	for _, anim := range script.Anims {
+		add := Anim{Name: anim.Name}
+		for _, frame := range anim.Frames {
+			addFrame := Frame{Time: frame.Time}
+			for _, style := range frame.Styles {
+				addFrame.Styles = append(
+					addFrame.Styles,
+					Style{style.Prop, style.Val},
+				)
+			}
+			add.Frames = append(
+				add.Frames,
+				addFrame,
+			)
+		}
+		ret.Anims = append(ret.Anims, add)
+	}
+
+	return ret
+}
+
+func (script *Script) String() string {
+	ret := ""
+	for _, rule := range script.Rules {
+		sels := []string{}
+		for _, sel := range rule.Selectors {
+			sels = append(sels, sel.Sel+sel.PostSel)
+		}
+		ret += strings.Join(sels, " ") + "{"
+
+		props := []string{}
+		for _, prop := range rule.Styles {
+			props = append(props, prop.Prop+":"+prop.Val)
+		}
+		ret += strings.Join(props, ";") + "}"
+	}
+
+	for _, anim := range script.Anims {
+		ret += "@keyframes " + anim.Name + "{"
+
+		for _, frame := range anim.Frames {
+			ret += frame.Time + "{"
+			props := []string{}
+			for _, prop := range frame.Styles {
+				props = append(props, prop.Prop+":"+prop.Val)
+			}
+			ret += strings.Join(props, ";") + "}"
+		}
+
+		ret += "}"
+	}
+
+	return ret
+}
+
+// AddClass add the class to all selectors in the script
+func (script *Script) AddClass(class string) {
+	for i := 0; i < len(script.Rules); i++ {
+		for ii := 0; ii < len(script.Rules[i].Selectors); ii++ {
+			script.Rules[i].Selectors[ii].Sel += "." + class
+		}
+	}
+}
+
 // Lex will produce tokens from a string of css rules
 func Lex(css string) []Token {
 	tokens := []Token{}
@@ -205,6 +289,7 @@ func Lex(css string) []Token {
 				prev != idName &&
 				prev != pseudoClass &&
 				prev != pseudoElm &&
+				prev != attrBlock &&
 				prev != closeAttrBlock {
 				i++
 				continue

@@ -64,13 +64,33 @@ func (node *CSSNode) Parse(ctx ParseNodeContext) error {
 // Instance takes parameters from the node context and replaces template parameteres
 func (node *CSSNode) Instance(ctx InstNodeContext) error {
 	re := regexp.MustCompile(`"@[_a-zA-Z][_a-zA-Z0-9]*@"`)
-	for i := 0; i < len(node.Rules); i++ {
-		rule := node.Rules[i]
-		rule.AddClass(ctx.componentScope)
-		for j := 0; j < len(rule.Styles); j++ {
-			style := &rule.Styles[j]
-			for k := 0; k < len(style.Value); k++ {
-				matches := re.FindAll([]byte(style.Value), -1)
+	for i := 0; i < len(node.Script.Rules); i++ {
+		for ii := 0; ii < len(node.Script.Rules[i].Styles); ii++ {
+			val := node.Script.Rules[i].Styles[ii].Val
+			matches := re.FindAll([]byte(val), -1)
+			for _, match := range matches {
+				p := ""
+				pnode, ok := ctx.Parameters[string(match[2:len(match)-2])]
+				if ok {
+					if len(pnode) == 1 {
+						p = pnode[0].Data()
+					}
+					if len(pnode) > 1 {
+						return fmt.Errorf("error at node %s, tried to replace %s with multiple param nodes", node, match)
+					}
+					if len(pnode) == 1 && pnode[0].Type() != TextType {
+						return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
+					}
+				}
+				node.Script.Rules[i].Styles[ii].Val = strings.ReplaceAll(val, string(match), p)
+			}
+		}
+	}
+	for i := 0; i < len(node.Script.Anims); i++ {
+		for ii := 0; ii < len(node.Script.Anims[i].Frames); ii++ {
+			for iii := 0; iii < len(node.Script.Anims[i].Frames[ii].Styles); iii++ {
+				val := node.Script.Anims[i].Frames[ii].Styles[iii].Val
+				matches := re.FindAll([]byte(val), -1)
 				for _, match := range matches {
 					p := ""
 					pnode, ok := ctx.Parameters[string(match[2:len(match)-2])]
@@ -85,11 +105,12 @@ func (node *CSSNode) Instance(ctx InstNodeContext) error {
 							return fmt.Errorf("error at node %s, tried to replace %s with a non-text parameter", node, match)
 						}
 					}
-					style.Value = strings.ReplaceAll(style.Value, string(match), p)
+					node.Script.Anims[i].Frames[ii].Styles[iii].Val = strings.ReplaceAll(val, string(match), p)
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -118,27 +139,20 @@ func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 
 // Render converts a node into a textual representation
 func (node *CSSNode) Render() string {
-	ret := ""
-
-	for _, rule := range node.Rules {
-		ret += rule.String()
-	}
-
-	return ret
+	return node.Script.String()
 }
 
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *CSSNode) Clone() Node {
 	clone := CSSNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+		Href:     node.Href,
+		Script:   *node.Script.Clone(),
+		Remote:   node.Remote,
 	}
 
 	for _, child := range node.Children() {
 		clone.AppendChild(child.Clone())
-	}
-
-	for _, rule := range node.Rules {
-		clone.Rules = append(clone.Rules, rule.clone())
 	}
 
 	return &clone

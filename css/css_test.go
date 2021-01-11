@@ -173,6 +173,21 @@ func TestLex(t *testing.T) {
 				Token{closeBlock, "}"},
 			},
 		},
+		test{ // Test 6
+			css: `div[attr|="test"] #idTest {
+				test: test;
+			}`,
+			check: []Token{
+				Token{elmName, "div"},
+				Token{attrBlock, "[attr|=\"test\"]"},
+				Token{whiteSpace, " "},
+				Token{idName, "#idTest"},
+				Token{openBlock, "{"},
+				Token{property, "test"},
+				Token{value, "test"},
+				Token{closeBlock, "}"},
+			},
+		},
 	}
 
 	for i, run := range tests {
@@ -693,6 +708,275 @@ func TestParse(t *testing.T) {
 				}
 			}
 
+		}
+	}
+}
+
+func TestClone(t *testing.T) {
+	tests := []Script{
+		Script{
+			Rules: []Rule{
+				Rule{
+					Selectors: []Selector{
+						Selector{Sel: "test", PostSel: "this"},
+						Selector{Sel: "again"},
+						Selector{Sel: "and again"},
+					},
+					Styles: []Style{
+						Style{Prop: "red", Val: "blue"},
+						Style{Prop: "green", Val: "yellow"},
+						Style{Prop: "black", Val: "white"},
+					},
+				},
+				Rule{
+					Selectors: []Selector{
+						Selector{Sel: "happy", PostSel: "to you"},
+						Selector{Sel: "birthday"},
+					},
+					Styles: []Style{
+						Style{Prop: "purple", Val: "dog"},
+						Style{Prop: "gray", Val: "elephant"},
+					},
+				},
+			},
+			Anims: []Anim{
+				Anim{
+					Name: "anim1",
+					Frames: []Frame{
+						Frame{Time: "0%",
+							Styles: []Style{
+								Style{Prop: "a", Val: "b"},
+								Style{Prop: "c", Val: "d"},
+								Style{Prop: "e", Val: "f"},
+							},
+						},
+						Frame{Time: "100%",
+							Styles: []Style{
+								Style{Prop: "a", Val: "b"},
+								Style{Prop: "c", Val: "d"},
+								Style{Prop: "e", Val: "f"},
+							},
+						},
+					},
+				},
+				Anim{
+					Name: "anim2",
+					Frames: []Frame{
+						Frame{Time: "0%",
+							Styles: []Style{
+								Style{Prop: "a", Val: "b"},
+								Style{Prop: "c", Val: "d"},
+								Style{Prop: "e", Val: "f"},
+							},
+						},
+						Frame{Time: "100%",
+							Styles: []Style{
+								Style{Prop: "a", Val: "b"},
+								Style{Prop: "c", Val: "d"},
+								Style{Prop: "e", Val: "f"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i, run := range tests {
+		script := run.Clone()
+		if len(script.Rules) != len(run.Rules) {
+			t.Errorf("(%d) wrong number of rules got %d expected %d", i, len(script.Rules), len(run.Rules))
+		}
+
+		if len(script.Anims) != len(run.Anims) {
+			t.Errorf("(%d) wrong number of rules got %d expected %d", i, len(script.Anims), len(run.Anims))
+		}
+
+		for ii, rule := range script.Rules {
+			if len(rule.Selectors) != len(run.Rules[ii].Selectors) {
+				t.Errorf(
+					"(%d|%d) wrong number of selectors got %d expected %d",
+					i, ii, len(rule.Selectors), len(run.Rules[ii].Selectors),
+				)
+			}
+
+			if len(rule.Styles) != len(run.Rules[ii].Styles) {
+				t.Errorf(
+					"(%d|%d) wrong number of styles got %d expected %d",
+					i, ii, len(rule.Styles), len(run.Rules[ii].Styles),
+				)
+			}
+
+			for iii, sel := range rule.Selectors {
+				if sel.Sel != run.Rules[ii].Selectors[iii].Sel {
+					t.Errorf(
+						"(%d|%d|%d) wrong selector got %s expected %s",
+						i, ii, iii, sel.Sel, run.Rules[ii].Selectors[iii].Sel,
+					)
+				}
+
+				if sel.PostSel != run.Rules[ii].Selectors[iii].PostSel {
+					t.Errorf(
+						"(%d|%d|%d) wrong post selector got %s expected %s",
+						i, ii, iii, sel.PostSel, run.Rules[ii].Selectors[iii].PostSel,
+					)
+				}
+			}
+
+			for iii, style := range rule.Styles {
+				if style.Prop != run.Rules[ii].Styles[iii].Prop {
+					t.Errorf(
+						"(%d|%d|%d) wrong style property got %s expected %s",
+						i, ii, iii, style.Prop, run.Rules[ii].Styles[iii].Prop,
+					)
+				}
+
+				if style.Val != run.Rules[ii].Styles[iii].Val {
+					t.Errorf(
+						"(%d|%d|%d) wrong style value got %s expected %s",
+						i, ii, iii, style.Val, run.Rules[ii].Styles[iii].Val,
+					)
+				}
+			}
+		}
+
+		for ii, anim := range script.Anims {
+			if anim.Name != run.Anims[ii].Name {
+				t.Errorf(
+					"(%d|%d) wrong animation name got %s expected %s",
+					i, ii, anim.Name, run.Anims[ii].Name,
+				)
+			}
+
+			if len(anim.Frames) != len(run.Anims[ii].Frames) {
+				t.Errorf(
+					"(%d|%d) wrong number of animation frames got %d expected %d",
+					i, ii, len(anim.Frames), len(run.Anims[ii].Frames),
+				)
+			}
+
+			for iii, frame := range anim.Frames {
+				if frame.Time != run.Anims[ii].Frames[iii].Time {
+					t.Errorf(
+						"(%d|%d|%d) wrong animation frame time got %s expected %s",
+						i, ii, iii, frame.Time, run.Anims[ii].Frames[iii].Time,
+					)
+				}
+
+				if len(frame.Styles) != len(run.Anims[ii].Frames[iii].Styles) {
+					t.Errorf(
+						"(%d|%d|%d) wrong number of animation frame styles got %d expected %d",
+						i, ii, iii, len(frame.Styles), len(run.Anims[ii].Frames[iii].Styles),
+					)
+				}
+
+				for iiii, style := range frame.Styles {
+					if style.Prop != run.Anims[ii].Frames[iii].Styles[iiii].Prop {
+						t.Errorf(
+							"(%d|%d|%d|%d) wrong animation frame style prop got %s expected %s",
+							i, ii, iii, iiii, style.Prop, run.Anims[ii].Frames[iii].Styles[iiii].Prop,
+						)
+					}
+
+					if style.Val != run.Anims[ii].Frames[iii].Styles[iiii].Val {
+						t.Errorf(
+							"(%d|%d|%d|%d) wrong animation frame style prop got %s expected %s",
+							i, ii, iii, iiii, style.Val, run.Anims[ii].Frames[iii].Styles[iiii].Val,
+						)
+					}
+				}
+			}
+
+		}
+	}
+}
+
+func TestAddClass(t *testing.T) {
+	test := Script{
+		Rules: []Rule{
+			Rule{
+				Selectors: []Selector{
+					Selector{Sel: "a", PostSel: "b"},
+					Selector{Sel: "c"},
+					Selector{Sel: "d", PostSel: "e"},
+				},
+			},
+			Rule{
+				Selectors: []Selector{
+					Selector{Sel: "c"},
+				},
+			},
+		},
+	}
+
+	test.AddClass("class")
+
+	if test.Rules[0].Selectors[0].Sel != "a.class" {
+		t.Errorf("wrong class name got %s expected a.class", test.Rules[0].Selectors[0].Sel)
+	}
+	if test.Rules[0].Selectors[1].Sel != "c.class" {
+		t.Errorf("wrong class name got %s expected c.class", test.Rules[0].Selectors[1].Sel)
+	}
+	if test.Rules[0].Selectors[2].Sel != "d.class" {
+		t.Errorf("wrong class name got %s expected d.class", test.Rules[0].Selectors[2].Sel)
+	}
+	if test.Rules[1].Selectors[0].Sel != "c.class" {
+		t.Errorf("wrong class name got %s expected c.class", test.Rules[1].Selectors[0].Sel)
+	}
+}
+
+func TestString(t *testing.T) {
+	type test struct {
+		css   string
+		check string
+	}
+
+	tests := []test{
+		test{
+			css: `div button {
+				color: black;
+				test: 1px 20px 2px;
+			}`,
+			check: `div button{color:black;test:1px 20px 2px}`,
+		},
+		test{
+			css: `.class[attr|="start"] #id:nth-child(even) {
+				color: #ffffff22;
+				border: 2px solid #300;
+			}
+			
+			div {
+				width: 50px;
+				height: 50px;
+				background-color: gray;
+				animation: anim 5s;
+			}
+			
+			@keyframes anim {
+				0% {
+					width: 0px;
+				}
+				70% {
+					width: 50px;
+				}
+				100% {
+					width: 70px;
+				}
+			}`,
+			check: `.class[attr|="start"] #id:nth-child(even){color:#ffffff22;border:2px solid #300}div{width:50px;height:50px;background-color:gray;animation:anim 5s}@keyframes anim{0%{width:0px}70%{width:50px}100%{width:70px}}`,
+		},
+	}
+
+	for i, run := range tests {
+		tokens := Lex(run.css)
+		script, err := Parse(tokens)
+		if err != nil {
+			t.Errorf("(%d) error parsing script %s", i, err)
+		}
+
+		min := script.String()
+		if min != run.check {
+			t.Errorf("(%d) scripts don't match got %s expected %s", i, min, run.check)
 		}
 	}
 }
