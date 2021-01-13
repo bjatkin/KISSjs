@@ -364,11 +364,7 @@ func parseImportStatment(script []Token) (int, Import) {
 			continue
 		}
 		if tok == closeImport {
-			i++
-			if script[i].Type != semiColon {
-				break
-			}
-			i++
+			i += 2
 			return i, ret
 		}
 

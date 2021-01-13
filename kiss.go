@@ -388,7 +388,8 @@ func Render(outputDir, viewLocation string, root Node) error {
 				name += ".css"
 			}
 			head.AppendChild(
-				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/" + name}))
+				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/" + name}),
+			)
 		}
 		if entry.Type == JSFileType {
 			name := entry.Name
@@ -396,8 +397,8 @@ func Render(outputDir, viewLocation string, root Node) error {
 				name += ".js"
 			}
 			body.AppendChild(
-				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: viewLocation + "/" + name}))
-
+				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: viewLocation + "/" + name}),
+			)
 		}
 	}
 
