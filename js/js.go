@@ -318,6 +318,10 @@ func addSemiColons(lines []Line) []Line {
 		switch postTok {
 		case closeExpression:
 			add = false
+		case closeObject:
+			add = false
+		case closeImport:
+			add = false
 		}
 
 		if preTok == closeObject && postTok == keyword {

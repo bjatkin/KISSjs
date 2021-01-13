@@ -112,15 +112,32 @@ func TestParseTokens(t *testing.T) {
 			script: `
 			if (object.good() &&
 				object.notBad()) {
-					let do = "a thing"
+					let doing = "a thing"
 				}
 			`,
 			check: Script{},
 			checkLines: []string{
 				"if(object.good()&&",
 				"object.notBad()){",
-				"let do=\"a thing\";",
+				"let doing=\"a thing\"",
 				"};",
+			},
+		},
+		test{
+			script: `fetch(test, {
+				method: "POST",
+				body: JSON.stringify({
+					data: data,
+				})
+			}).`,
+			check: Script{},
+			checkLines: []string{
+				"fetch(test,{",
+				`method:"POST",`,
+				`body:JSON.stringify({`,
+				`data:data,`,
+				`})`,
+				`}).`,
 			},
 		},
 	}
