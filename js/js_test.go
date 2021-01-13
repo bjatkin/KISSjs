@@ -124,18 +124,27 @@ func TestParseTokens(t *testing.T) {
 			},
 		},
 		test{
-			script: `fetch(test, {
-				method: "POST",
-				body: JSON.stringify({
-					data: data,
-				})
-			}).`,
+			script: `
+				fetch(BASE_URL + "requestUserToken", {
+					method: "POST",
+					headers: {
+						'Content-Type': 'application/json;charset=utf-8',
+					},
+					body: JSON.stringify({
+						email: email.value,
+						pass: pass.value,
+					})
+				}).`,
 			check: Script{},
 			checkLines: []string{
-				"fetch(test,{",
+				`fetch(BASE_URL+"requestUserToken",{`,
 				`method:"POST",`,
+				`headers:{`,
+				`'Content-Type':'application/json;charset=utf-8',`,
+				`},`,
 				`body:JSON.stringify({`,
-				`data:data,`,
+				`email:email.value,`,
+				`pass:pass.value,`,
 				`})`,
 				`}).`,
 			},
