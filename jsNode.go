@@ -81,6 +81,7 @@ func (node *JSNode) Instance(ctx InstNodeContext) error {
 		line := &node.Script.Lines[i]
 		for j := 0; j < len(line.Value); j++ {
 			tok := &line.Value[j]
+			// TODO we only need to check template and value types
 			matches := re.FindAll([]byte(tok.Value), -1)
 			for _, match := range matches {
 				val := ""

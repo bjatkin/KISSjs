@@ -222,8 +222,7 @@ func lexComment(script []Token) (int, Token) {
 // ParseTokens will parse a series of tokens passed from the lexer into a Script object
 func ParseTokens(script []Token) (Script, error) {
 	ret := Script{}
-	i := 0
-	start := 0
+	var i, start int
 	for i < len(script) {
 		start = i
 		if script[i].Type == whiteSpace {
