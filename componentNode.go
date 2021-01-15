@@ -25,7 +25,7 @@ func (node *ComponentNode) Parse(ctx ParseNodeContext) error {
 		if strings.ToLower(node.Data()) == tag.tag {
 			root = tag.root.Clone()
 			root.SetVisible(false)
-			node.AppendChild(root)
+			AppendChild(node, root)
 
 			ctx.path = tag.path
 			break
@@ -61,7 +61,7 @@ func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 		ctx.Parameters[strings.ToLower(attr.Key)] = []Node{NewNode(attr.Val, TextType)}
 	}
 
-	for _, child := range node.Children() {
+	for _, child := range Children(node) {
 		if child.Data() == "root" {
 			err := child.Instance(ctx)
 			if err != nil {
@@ -69,10 +69,10 @@ func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 			}
 			break
 		}
-		ctx.Parameters[strings.ToLower(child.Data())] = child.Children()
+		ctx.Parameters[strings.ToLower(child.Data())] = Children(child)
 	}
 
-	for _, child := range node.Children() {
+	for _, child := range Children(node) {
 		err := child.Instance(ctx)
 		if err != nil {
 			return err
@@ -80,12 +80,12 @@ func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 	}
 
 	// Hide all the parameters
-	for _, child := range node.Children() {
+	for _, child := range Children(node) {
 		if child.Data() == "root" {
 			continue
 		}
 		child.SetVisible(false)
-		for _, desc := range child.Descendants() {
+		for _, desc := range Descendants(child) {
 			desc.SetVisible(false)
 		}
 	}
@@ -96,7 +96,7 @@ func (node *ComponentNode) Instance(ctx InstNodeContext) error {
 func collectNodes(node *ComponentNode, root Node) *ComponentNode {
 	// Collect all the attributes here
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
-	descs := root.Descendants()
+	descs := Descendants(root)
 	for i := 0; i < len(descs); i++ {
 		if re.Match([]byte(descs[i].Data())) {
 			node.TempNodes = append(node.TempNodes, descs[i])
@@ -114,12 +114,12 @@ func collectNodes(node *ComponentNode, root Node) *ComponentNode {
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *ComponentNode) Clone() Node {
 	clone := &ComponentNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+		BaseNode: BaseNode{data: node.Data(), attr: cloneAttrs(node.Attrs()), nType: node.Type(), visible: node.Visible()},
 	}
 
 	var root Node
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 		if child.Data() == "root" {
 			root = child
 		}

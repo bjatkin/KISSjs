@@ -16,11 +16,11 @@ type JSNode struct {
 	Src    string
 	Script js.Script
 	Remote bool
+	Depth  int
 }
 
 // Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
 func (node *JSNode) Parse(ctx ParseNodeContext) error {
-	fmt.Print(node)
 	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
@@ -46,6 +46,7 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 	}
 	if hasSrc {
 		node.Src = ctx.path + srcAttr.Val
+		// TODO: OPTIM: it seems slow to re-read the same files over and over, perhaps we should have an abstraction that does some kind of caching
 		scriptBytes, err := ioutil.ReadFile(node.Src)
 		script = string(scriptBytes)
 		if err != nil {
@@ -69,9 +70,11 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 			attrs = append(attrs, &html.Attribute{Key: "remote"})
 		}
 		newNode.SetAttrs(attrs)
-		node.AppendChild(newNode)
+		AppendChild(node, newNode)
 	}
 
+	node.Depth = ctx.depth
+	ctx.depth++
 	return node.BaseNode.Parse(ctx)
 }
 
@@ -82,7 +85,7 @@ func (node *JSNode) Instance(ctx InstNodeContext) error {
 		line := &node.Script.Lines[i]
 		for j := 0; j < len(line.Value); j++ {
 			tok := &line.Value[j]
-			// TODO we only need to check template and value types
+			// TODO: OPTIM: we only need to check template and value types
 			matches := re.FindAll([]byte(tok.Value), -1)
 			for _, match := range matches {
 				val := ""
@@ -106,73 +109,25 @@ func (node *JSNode) Instance(ctx InstNodeContext) error {
 	return nil
 }
 
-// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
-func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
-	if !node.Visible() {
-		Detach(node)
-		return ctx
-	}
-
-	if node.Remote {
-		ctx.files = ctx.files.Merge(&File{
-			Name:    node.Src,
-			Type:    JSFileType,
-			Entries: []Node{node},
-			Remote:  true,
-		})
-		Detach(node)
-		return ctx
-	}
-
-	if ctx.callerType != JSType {
-		ctx.files = ctx.files.Merge(&File{
-			Name:    "bundle",
-			Type:    JSFileType,
-			Entries: []Node{node},
-		})
-		Detach(node)
-	}
-
-	ctx.callerType = JSType
-	for _, node := range node.Children() {
-		ctx = node.FindEntry(ctx)
-	}
-
-	return ctx
-}
-
 // Render converts a node into a textual representation
-func (node *JSNode) Render(ctx RenderNodeContext) string {
-	for _, file := range ctx.files {
-		if node.Src == file.Path {
-			// We already renderd this file in higher up
-			return ""
-		}
-	}
-	ret := "{" + node.Script.String() + "}"
-
-	ctx.files = append(ctx.files, &File{Path: node.Src})
-	for _, child := range node.Children() {
-		script := child.Render(ctx)
-		ret = script + ret
-	}
-
-	return ret
+func (node *JSNode) Render() string {
+	// fmt.Printf("node: %s %p\n", node, node)
+	return "{" + node.Script.String() + "}"
 }
 
 // Clone creates a clone of the node
 func (node *JSNode) Clone() Node {
-	clone := JSNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+	clone := &JSNode{
+		BaseNode: BaseNode{data: node.Data(), attr: cloneAttrs(node.Attrs()), nType: node.Type(), visible: node.Visible()},
 	}
 
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 	}
 
 	clone.Src = node.Src
 	clone.Remote = node.Remote
 	clone.Script = node.Script.Clone()
 
-	return &clone
+	return clone
 }

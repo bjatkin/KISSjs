@@ -36,7 +36,7 @@ func ToNodeType(node *html.Node) NodeType {
 	}
 	if data == "script" {
 		sType := getAttr(node, "type")
-		if sType.Val == "text/typescript" {
+		if sType != nil && sType.Val == "text/typescript" {
 			return TSType
 		}
 		return JSType
@@ -71,15 +71,10 @@ func (nType NodeType) String() string {
 
 // Node is a interface for all objects that can behave like html nodes
 type Node interface {
-	AppendChild(child Node)
-	InsertBefore(new Node, child Node) error
-	Children() []Node
-	Descendants() []Node
 	String() string
 	Parse(ParseNodeContext) error
 	Instance(InstNodeContext) error
-	Render(RenderNodeContext) string
-	FindEntry(RenderNodeContext) RenderNodeContext
+	Render() string
 	Type() NodeType
 	Clone() Node
 	Visible() bool
@@ -98,11 +93,16 @@ type Node interface {
 	SetNextSibling(Node)
 }
 
+// TODO: why are path and depth lowercase but ImportTags is not?
+
 // ParseNodeContext passes contextual infromation from parent to child nodes durring parsing
 type ParseNodeContext struct {
 	path       string
 	ImportTags []ImportTag
+	depth      int
 }
+
+// TODO: why is compScope lower case but parameters is not?
 
 // InstNodeContext passes contextual infromation from parent to child nodes durring instancing
 type InstNodeContext struct {
@@ -206,55 +206,55 @@ func ToKissNode(node *html.Node) Node {
 	return ret
 }
 
-// AppendChild adds a the new node as the last child of the node
-func (node *BaseNode) AppendChild(new Node) {
-	new.SetParent(node)
+// AppendChild adds a the new node as the last child of the parent node
+func AppendChild(parent, child Node) {
+	child.SetParent(parent)
 
-	lastChild := node.firstChild
+	lastChild := parent.FirstChild()
 	if lastChild != nil {
 		for lastChild.NextSibling() != nil {
 			lastChild = lastChild.NextSibling()
 		}
 	}
 
-	new.SetPrevSibling(lastChild)
-	new.SetNextSibling(nil)
+	child.SetPrevSibling(lastChild)
+	child.SetNextSibling(nil)
 
 	if lastChild != nil {
-		lastChild.SetNextSibling(new)
+		lastChild.SetNextSibling(child)
 		return
 	}
-	node.SetFirstChild(new)
+	parent.SetFirstChild(child)
 }
 
 // InsertBefore adds the new node as a child directly before the specified child node
 // and error is thrown if child is not a direct child of the base node
-func (node *BaseNode) InsertBefore(new, child Node) error {
-	check := node.FirstChild()
+func InsertBefore(parent, child, new Node) error {
+	check := parent.FirstChild()
 	for check != nil {
 		if check == child {
 			prev := child.PrevSibling()
 			if prev != nil {
 				prev.SetNextSibling(new)
 			} else {
-				node.SetFirstChild(new)
+				parent.SetFirstChild(new)
 			}
 			new.SetPrevSibling(prev)
 			child.SetPrevSibling(new)
 
-			new.SetParent(node)
+			new.SetParent(parent)
 			new.SetNextSibling(child)
 
 			return nil
 		}
 		check = check.NextSibling()
 	}
-	return fmt.Errorf("node %s is not a child of %s", child, node)
+	return fmt.Errorf("node %s is not a child of %s", child, parent)
 }
 
-// Children returns an array of all the base nodes direct children
-func (node *BaseNode) Children() []Node {
-	child := node.FirstChild()
+// Children returns an array of all the parent nodes direct children
+func Children(parent Node) []Node {
+	child := parent.FirstChild()
 	ret := []Node{}
 	for child != nil {
 		ret = append(ret, child)
@@ -264,8 +264,8 @@ func (node *BaseNode) Children() []Node {
 }
 
 // Descendants returns an array of all the base nodes decendents
-func (node *BaseNode) Descendants() []Node {
-	return listDescendants(node, true)
+func Descendants(root Node) []Node {
+	return listDescendants(root, true)
 }
 
 // listDescendants
@@ -305,11 +305,11 @@ func Detach(node Node) Node {
 
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *BaseNode) Clone() Node {
-	clone := NewNode(node.data, node.nType, node.attr...)
+	clone := NewNode(node.data, node.nType, cloneAttrs(node.attr)...)
 	clone.SetVisible(node.Visible())
 
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 	}
 
 	return clone
@@ -317,7 +317,7 @@ func (node *BaseNode) Clone() Node {
 
 // Parse builds the nodes structure and then calls parse on all it's child nodes
 func (node *BaseNode) Parse(ctx ParseNodeContext) error {
-	for _, child := range node.Children() {
+	for _, child := range Children(node) {
 		err := child.Parse(ctx)
 		if err != nil {
 			return err
@@ -350,7 +350,7 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 		}
 	}
 
-	for _, child := range node.Children() {
+	for _, child := range Children(node) {
 		err := child.Instance(ctx)
 		if err != nil {
 			return err
@@ -361,7 +361,7 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 }
 
 // Render converts a node into a textual representation
-func (node *BaseNode) Render(ctx RenderNodeContext) string {
+func (node *BaseNode) Render() string {
 	ret := ""
 	if node.visible {
 		ret += "<" + node.Data()
@@ -378,8 +378,8 @@ func (node *BaseNode) Render(ctx RenderNodeContext) string {
 		ret += ">"
 	}
 
-	for _, child := range node.Children() {
-		ret += child.Render(ctx)
+	for _, child := range Children(node) {
+		ret += child.Render()
 	}
 
 	if node.Data() == "hr" ||
@@ -392,15 +392,6 @@ func (node *BaseNode) Render(ctx RenderNodeContext) string {
 		ret += "</" + node.Data() + ">"
 	}
 	return ret
-}
-
-// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
-func (node *BaseNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
-	for _, child := range node.Children() {
-		ctx.callerType = BaseType
-		ctx = child.FindEntry(ctx)
-	}
-	return ctx
 }
 
 // String returns the nodes string representation
@@ -532,4 +523,16 @@ func AddClass(node Node, class string) {
 			return
 		}
 	}
+}
+
+// FindNodes finds all child nodes of the root of a given NodeType
+func FindNodes(root Node, nType NodeType) []Node {
+	ret := []Node{}
+	desc := Descendants(root)
+	for i := 0; i < len(desc); i++ {
+		if desc[i].Type() == nType {
+			ret = append(ret, desc[i])
+		}
+	}
+	return ret
 }

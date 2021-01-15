@@ -35,7 +35,7 @@ func (node *ImportNode) Parse(ctx ParseNodeContext) error {
 		root := NewNode("root", BaseType)
 		root.SetVisible(false)
 		for _, child := range children {
-			root.AppendChild(child)
+			AppendChild(root, child)
 		}
 		node.ComponentRoot = root
 	}
@@ -60,17 +60,17 @@ func (node *ImportNode) Parse(ctx ParseNodeContext) error {
 
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *ImportNode) Clone() Node {
-	clone := ImportNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+	clone := &ImportNode{
+		BaseNode: BaseNode{data: node.Data(), attr: cloneAttrs(node.Attrs()), nType: node.Type(), visible: node.Visible()},
 	}
 
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 	}
 
 	clone.Tag = node.Tag
 	clone.Src = node.Src
 	clone.ComponentRoot = node.ComponentRoot
 
-	return &clone
+	return clone
 }

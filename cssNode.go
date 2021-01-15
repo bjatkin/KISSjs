@@ -14,6 +14,7 @@ type CSSNode struct {
 	Href   string
 	Script css.Script
 	Remote bool
+	roi    bool
 }
 
 // Parse extracts all css rules and applies the correct scope to them
@@ -143,22 +144,22 @@ func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 }
 
 // Render converts a node into a textual representation
-func (node *CSSNode) Render(ctx RenderNodeContext) string {
+func (node *CSSNode) Render() string {
 	return node.Script.String()
 }
 
 // Clone creates a deep copy of a node, but does not copy over the connections to the original parent and siblings
 func (node *CSSNode) Clone() Node {
-	clone := CSSNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+	clone := &CSSNode{
+		BaseNode: BaseNode{data: node.Data(), attr: cloneAttrs(node.Attrs()), nType: node.Type(), visible: node.Visible()},
 		Href:     node.Href,
 		Script:   *node.Script.Clone(),
 		Remote:   node.Remote,
 	}
 
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 	}
 
-	return &clone
+	return clone
 }

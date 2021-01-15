@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link remote rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">
+        <style>
+            body, html {
+                height: 100%;
+                background-color: wheat;
+            }
+            div {
+                width: 100px;
+                height: 100px;
+                text-align: center;
+                color: white;
+                background-color: black;
+            }
+        </style>
+    </head>
+
+    <body>
+        <comp tag="header" src="comp/header.html"></comp>
+        <header text="THIS IS THE BEST"></header>
+
+        <comp tag="test_btn" src="comp/btn.html"></comp>
+        <test_btn label="test1" color="blue"></test_btn>
+        <test_btn label="test2" color="green"></test_btn>
+        <test_btn label="test3" color="yellow"></test_btn>
+
+        <script src="test.js"></script>
+        <script remote src="remote.js"></script>
+    </body>
+</html>

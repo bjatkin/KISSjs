@@ -15,6 +15,7 @@ type TSNode struct {
 	BaseNode
 	Src    string
 	Script ts.Script
+	Depth  int
 }
 
 // Parse extracts the script informaiton and arguments from the node and then calls parse on all it's children scripts
@@ -30,6 +31,7 @@ func (node *TSNode) Parse(ctx ParseNodeContext) error {
 	script := ""
 	if node.BaseNode.firstChild != nil {
 		script = node.firstChild.Data()
+		node.Src = ctx.path
 		Detach(node.firstChild)
 	}
 	if hasSrc {
@@ -52,14 +54,17 @@ func (node *TSNode) Parse(ctx ParseNodeContext) error {
 	// Add children
 	for _, i := range node.Script.Imports {
 		newNode := NewNode("script", TSType)
+		newNode.(*TSNode).Src = ctx.path + i
 		attrs := []*html.Attribute{
 			&html.Attribute{Key: "src", Val: i},
-			&html.Attribute{Key: "Type", Val: "text/typescript"},
+			&html.Attribute{Key: "type", Val: "text/typescript"},
 		}
 		newNode.SetAttrs(attrs)
-		node.AppendChild(newNode)
+		AppendChild(node, newNode)
 	}
 
+	node.Depth = ctx.depth
+	ctx.depth++
 	return node.BaseNode.Parse(ctx)
 }
 
@@ -92,61 +97,23 @@ func (node *TSNode) Instance(ctx InstNodeContext) error {
 	return nil
 }
 
-// FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
-func (node *TSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
-	if !node.Visible() {
-		Detach(node)
-		return ctx
-	}
-
-	if ctx.callerType != TSType {
-		ctx.files = ctx.files.Merge(&File{
-			Name:    "bundle",
-			Type:    TSFileType,
-			Entries: []Node{node},
-			Path:    node.Src,
-		})
-		Detach(node)
-	}
-
-	ctx.callerType = TSType
-	for _, node := range node.Children() {
-		ctx = node.FindEntry(ctx)
-	}
-
-	return ctx
-}
-
 // Render converts a node into a textual representation
-func (node *TSNode) Render(ctx RenderNodeContext) string {
-	for _, file := range ctx.files {
-		if file.Path == node.Src {
-			return ""
-		}
-	}
-	ret := "{" + node.Script.String() + "}"
-
-	ctx.files = append(ctx.files, &File{Path: node.Src})
-	for _, child := range node.Children() {
-		script := child.Render(ctx)
-		ret = script + ret
-	}
-
-	return ret
+func (node *TSNode) Render() string {
+	return "{\n" + node.Script.String() + "\n}\n"
 }
 
 // Clone creats a clone of the node
 func (node *TSNode) Clone() Node {
-	clone := TSNode{
-		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
+	clone := &TSNode{
+		BaseNode: BaseNode{data: node.Data(), attr: cloneAttrs(node.Attrs()), nType: node.Type(), visible: node.Visible()},
 	}
 
-	for _, child := range node.Children() {
-		clone.AppendChild(child.Clone())
+	for _, child := range Children(node) {
+		AppendChild(clone, child.Clone())
 	}
 
 	clone.Src = node.Src
 	clone.Script = node.Script.Clone()
 
-	return &clone
+	return clone
 }

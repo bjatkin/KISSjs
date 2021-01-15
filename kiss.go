@@ -26,7 +26,7 @@ func main() {
 			return
 		}
 		for _, comp := range comps {
-			globals[strings.ToLower(comp.Data())] = comp.Children()
+			globals[strings.ToLower(comp.Data())] = Children(comp)
 		}
 	}
 
@@ -131,7 +131,7 @@ func parseComponentFile(file string) ([]Node, error) {
 	}
 
 	ret := []Node{}
-	for _, node := range root.Children() {
+	for _, node := range Children(root) {
 		ret = append(ret, node)
 	}
 
@@ -157,14 +157,14 @@ func convertNodeTree(parent Node, node *html.Node) Node {
 
 func hoistImports(root Node) Node {
 	imports := []Node{}
-	for _, node := range root.Descendants() {
+	for _, node := range Descendants(root) {
 		if strings.ToLower(node.Data()) == comp {
-			children := node.Children()
+			children := Children(node)
 			if len(children) > 0 {
 				root := NewNode("root", BaseType)
 				root.SetVisible(false)
-				for _, child := range node.Children() {
-					root.AppendChild(Detach(child))
+				for _, child := range Children(node) {
+					AppendChild(root, Detach(child))
 				}
 				((node).(*ImportNode)).ComponentRoot = root
 			}
@@ -174,17 +174,17 @@ func hoistImports(root Node) Node {
 	}
 
 	for _, node := range imports {
-		for _, child := range root.Children() {
-			node.AppendChild(Detach(child))
+		for _, child := range Children(root) {
+			AppendChild(node, Detach(child))
 		}
-		root.AppendChild(node)
+		AppendChild(root, node)
 	}
 
 	return root
 }
 
 func convertInstanceComponents(root Node) (Node, error) {
-	desc := root.Descendants()
+	desc := Descendants(root)
 	for i := 0; i < len(desc); i++ {
 		node := desc[i]
 		if strings.ToLower(node.Data()) == comp {
@@ -201,12 +201,12 @@ func convertInstanceComponents(root Node) (Node, error) {
 
 			// Steal the childrent from the component node
 			add.SetFirstChild(node.FirstChild())
-			for _, child := range node.Children() {
+			for _, child := range Children(node) {
 				child.SetParent(add)
 			}
 			node.SetFirstChild(nil)
 
-			err := node.Parent().InsertBefore(add, node)
+			err := InsertBefore(node.Parent(), node, add)
 			if err != nil {
 				return nil, err
 			}
@@ -218,7 +218,7 @@ func convertInstanceComponents(root Node) (Node, error) {
 
 func convertComponents(root Node) (Node, error) {
 	tags := []string{}
-	for _, node := range root.Descendants() {
+	for _, node := range Descendants(root) {
 		if strings.ToLower(node.Data()) == comp {
 			hasTag, tagAttr := GetAttr(node, "tag")
 			if !hasTag {
@@ -234,7 +234,7 @@ func convertComponents(root Node) (Node, error) {
 					node.Parent().SetFirstChild(comp)
 				}
 				comp.SetFirstChild(node.FirstChild())
-				for _, child := range node.Children() {
+				for _, child := range Children(node) {
 					child.SetParent(comp)
 				}
 				comp.SetPrevSibling(node.PrevSibling())
@@ -255,7 +255,7 @@ func convertComponents(root Node) (Node, error) {
 }
 
 func removeWhiteSpace(root Node) Node {
-	for _, node := range root.Descendants() {
+	for _, node := range Descendants(root) {
 		if len(strings.TrimSpace(node.Data())) == 0 {
 			Detach(node)
 		}
@@ -265,7 +265,7 @@ func removeWhiteSpace(root Node) Node {
 
 func fragmentNodes(root Node) Node {
 	re := regexp.MustCompile(`{[_a-zA-Z][_a-zA-Z0-9]*}`)
-	for _, node := range root.Descendants() {
+	for _, node := range Descendants(root) {
 		data := strings.TrimSpace(node.Data())
 		matches := re.FindAllIndex([]byte(data), -1)
 		if len(matches) == 0 {
@@ -288,7 +288,7 @@ func fragmentNodes(root Node) Node {
 				continue
 			}
 			new := NewNode(ndata, TextType)
-			node.AppendChild(new)
+			AppendChild(node, new)
 		}
 	}
 
@@ -328,41 +328,21 @@ func (files FileList) Merge(add *File) FileList {
 	return append([]*File{add}, files...)
 }
 
-// WriteFile writes all the generated files to the dir
-func (file *File) WriteFile(dir string) error {
-	if file.Remote {
-		return fmt.Errorf("error writing %s, can not write remote files", file.Name)
-	}
-	ext := ".html"
-	if file.Type == JSFileType {
-		ext = ".js"
-	}
-	if file.Type == CSSFileType {
-		ext = ".css"
-	}
-	if file.Type == TSFileType {
-		ext = ".ts"
-	}
-
-	dest := dir + "/" + file.Name + ext
+// WriteFile writes a file to a specified dir
+func WriteFile(dest, data string) error {
 	f, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
 
-	content := ""
-	for _, node := range file.Entries {
-		content += node.Render(RenderNodeContext{})
-	}
-	_, err = f.Write([]byte(content))
-
+	_, err = f.Write([]byte(data))
 	return err
 }
 
 // Render takes a node and renders the full tree into an array of files
 func Render(outputDir, viewLocation string, root Node) error {
 	var head, body Node
-	for _, desc := range root.Descendants() {
+	for _, desc := range Descendants(root) {
 		if desc.Data() == "head" {
 			head = desc
 		}
@@ -375,53 +355,136 @@ func Render(outputDir, viewLocation string, root Node) error {
 		return fmt.Errorf("Missing head or body node")
 	}
 
-	ctx := RenderNodeContext{
-		files: []*File{
-			&File{
-				Name:    "index",
-				Type:    HTMLFileType,
-				Entries: []Node{root},
-			},
-		},
-	}
-
-	ctx = root.FindEntry(ctx)
-	for _, entry := range ctx.files {
-		if entry.Type == CSSFileType {
-			name := entry.Name
-			if !entry.Remote {
-				name += ".css"
-			}
-			head.AppendChild(
-				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/" + name}),
-			)
-		}
-
-		// assume that TSFiles will be converted to a js file
-		if entry.Type == JSFileType || entry.Type == TSFileType {
-			name := entry.Name
-			if !entry.Remote {
-				name += ".js"
-			}
-			body.AppendChild(
-				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: viewLocation + "/" + name}),
-			)
-		}
-	}
-
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		os.Mkdir(outputDir, 0700)
 	}
 
-	for _, file := range ctx.files {
-		if file.Remote {
+	cssNodes := FindNodes(root, CSSType)
+	var cssBundle string
+	for _, node := range cssNodes {
+		cssNode := node.(*CSSNode)
+		if !cssNode.Remote {
+			cssBundle += node.Render()
+		} else {
+			AppendChild(head,
+				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: cssNode.Href}))
+		}
+		Detach(node)
+	}
+	if len(cssNodes) > 0 {
+		err := WriteFile(outputDir+"/bundle.css", cssBundle)
+		if err != nil {
+			return err
+		}
+		AppendChild(head,
+			NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/bundle.css"}),
+		)
+	}
+
+	var jsBundle string
+	jsNodes := FindNodes(root, JSType)
+	maxDepth := 0
+	for _, node := range jsNodes {
+		depth := node.(*JSNode).Depth
+		if depth > maxDepth {
+			maxDepth = depth
+		}
+	}
+
+	sorted := []Node{}
+	for i := 0; i <= maxDepth; i++ {
+		for ii := 0; ii < len(jsNodes); ii++ {
+			if jsNodes[ii].(*JSNode).Depth == i {
+				sorted = append(sorted, jsNodes[ii])
+			}
+		}
+	}
+	jsNodes = sorted
+
+	done := []string{}
+	for _, node := range jsNodes {
+		jsNode := node.(*JSNode)
+		if jsNode.Remote {
+			AppendChild(body,
+				NewNode("script", BaseType, &html.Attribute{Key: "src", Val: jsNode.Src}))
+			Detach(node)
 			continue
 		}
-		err := file.WriteFile(outputDir)
+
+		src := node.Render()
+		new := true
+		for _, check := range done {
+			if check == src {
+				new = false
+			}
+		}
+		if new {
+			jsBundle = src + jsBundle
+			done = append(done, src)
+		}
+
+		Detach(node)
+	}
+	if len(jsNodes) > 0 {
+		err := WriteFile(outputDir+"/bundle.js", jsBundle)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	var tsBundle string
+	tsNodes := FindNodes(root, TSType)
+	maxDepth = 0
+	for _, node := range tsNodes {
+		depth := node.(*TSNode).Depth
+		if depth > maxDepth {
+			maxDepth = depth
+		}
+	}
+
+	sorted = []Node{}
+	for i := 0; i <= maxDepth; i++ {
+		for ii := 0; ii < len(tsNodes); ii++ {
+			if tsNodes[ii].(*TSNode).Depth == i {
+				sorted = append(sorted, tsNodes[ii])
+			}
+		}
+	}
+	tsNodes = sorted
+
+	done = []string{}
+	for _, node := range tsNodes {
+		src := node.Render()
+		new := true
+		for _, check := range done {
+			if check == src {
+				new = false
+			}
+		}
+		if new {
+			tsBundle = src + tsBundle
+			done = append(done, src)
+		}
+		Detach(node)
+	}
+	if len(tsNodes) > 0 {
+		err := WriteFile(outputDir+"/bundle.ts", tsBundle)
 		if err != nil {
 			return err
 		}
 	}
+	if len(jsNodes) > 0 || len(tsNodes) > 0 {
+		AppendChild(body,
+			NewNode("script", BaseType, &html.Attribute{Key: "src", Val: viewLocation + "/bundle.js"}),
+		)
+	}
+
+	err := WriteFile(outputDir+"/index.html", root.Render())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

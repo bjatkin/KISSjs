@@ -2,7 +2,7 @@
 <html>
     <head>
         <link remote rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">
-        <style>
+        <style debug="main">
             h1 {
                 color: blue;
             }
@@ -13,11 +13,11 @@
     </head>
     <body>
         <!-- Import Components -->
-        <component tag="KissButton" src="components/button.html"></component>
-        <component tag="KissHeader" src="components/header.html"></component>
-        <component tag="KissListItem" src="components/list.html"></component>
-        <component tag="KissList" src="components/oList.html"></component>
-        <component tag="NoCompile" src="components/noCompile.html"></component>
+        <comp tag="KissButton" src="components/button.html"></comp>
+        <comp tag="KissHeader" src="components/header.html"></comp>
+        <comp tag="KissListItem" src="components/list.html"></comp>
+        <comp tag="KissList" src="components/oList.html"></comp>
+        <comp tag="NoCompile" src="components/noCompile.html"></comp>
 
         <KissHeader div_color="red" title_color="white" adjective="Biggest"></KissHeader>
 
@@ -68,8 +68,8 @@
         </ol>
         <!-- FOR REFERENCE -->
 
-        <component tag="inline">
-            <style>
+        <comp tag="inline">
+            <style debug="inline">
                 p {
                     color: gold;
                 }
@@ -80,7 +80,7 @@
             <script>
                 console.log("THIS MEANS AN INLINE COMPONENT WAS ADDED")
             </script>
-        </component>
+        </comp>
         <Inline word="GREAT"></Inline>
         <Inline word="AWESOME"></Inline>
 
@@ -96,7 +96,7 @@
 
         <hr>
         <p>LooK HeRe!</p>
-        <component src="pages/test_page.html" title="winning" width="70px"></component>
+        <comp src="pages/test_page.html" title="winning" width="70px"></comp>
         <p>END!</p>
         <hr>
 

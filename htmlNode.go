@@ -76,6 +76,20 @@ func getAttr(node *html.Node, key string) *html.Attribute {
 	return nil
 }
 
+func cloneAttrs(attrs []*html.Attribute) []*html.Attribute {
+	var ret []*html.Attribute
+	for _, attr := range attrs {
+		ret = append(ret,
+			&html.Attribute{
+				Namespace: attr.Namespace,
+				Key:       attr.Key,
+				Val:       attr.Val,
+			},
+		)
+	}
+	return ret
+}
+
 // Keep in mind that this will list all the siblings of root as well
 func listNodes(root *html.Node) []*html.Node {
 	ret := []*html.Node{root}

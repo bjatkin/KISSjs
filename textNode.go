@@ -20,7 +20,7 @@ func (node *TextNode) Instance(ctx InstNodeContext) error {
 		paramNodes, ok := ctx.Parameters[data[1:len(data)-1]]
 		if ok {
 			for _, paramNode := range paramNodes {
-				node.AppendChild(paramNode.Clone())
+				AppendChild(node, paramNode.Clone())
 			}
 		}
 
@@ -31,14 +31,14 @@ func (node *TextNode) Instance(ctx InstNodeContext) error {
 }
 
 // Render returns the text on the data
-func (node *TextNode) Render(ctx RenderNodeContext) string {
-	ret := ""
+func (node *TextNode) Render() string {
+	var ret string
 	if node.Visible() {
 		ret += node.Data()
 	}
 
-	for _, child := range node.Children() {
-		ret += child.Render(ctx)
+	for _, child := range Children(node) {
+		ret += child.Render()
 	}
 
 	return ret
