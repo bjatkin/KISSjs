@@ -60,8 +60,6 @@ func main() {
 	}
 }
 
-const comp = "comp"
-
 func parseEntryFile(file string) (Node, error) {
 	data, err := os.Open(file)
 	if err != nil {
@@ -154,6 +152,8 @@ func convertNodeTree(parent Node, node *html.Node) Node {
 
 	return ret
 }
+
+const comp = "comp"
 
 func hoistImports(root Node) Node {
 	imports := []Node{}
@@ -400,9 +400,6 @@ func Render(outputDir, viewLocation string, root Node) error {
 		}
 	}
 	jsNodes = sorted
-	for _, node := range sorted {
-		fmt.Println(node, node.(*JSNode).Depth)
-	}
 
 	done := []string{}
 	for _, node := range jsNodes {
