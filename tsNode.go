@@ -1,7 +1,7 @@
 package main
 
 import (
-	"KISS/js"
+	"KISS/ts"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -10,33 +10,21 @@ import (
 	"golang.org/x/net/html"
 )
 
-// JSNode is a node for any js script data
-type JSNode struct {
+// TSNode is a node for any ts script data
+type TSNode struct {
 	BaseNode
 	Src    string
-	Script js.Script
-	Remote bool
+	Script ts.Script
 }
 
-// Parse extracts the script information and arguments from the node and then calls parse on all it's children scripts
-func (node *JSNode) Parse(ctx ParseNodeContext) error {
-	fmt.Print(node)
+// Parse extracts the script informaiton and arguments from the node and then calls parse on all it's children scripts
+func (node *TSNode) Parse(ctx ParseNodeContext) error {
 	hasSrc, srcAttr := GetAttr(node, "src")
 	if hasSrc && node.firstChild != nil {
 		return fmt.Errorf("error at node %s, can not have both a src value and a child text node", node)
 	}
 	if !hasSrc && node.firstChild == nil {
-		return fmt.Errorf("error at node %s, node has neither a src element nore any child text, empty script nodes nod allowed", node)
-	}
-
-	hasRemote, _ := GetAttr(node, "remote")
-	node.Remote = hasRemote
-	if hasRemote && !hasSrc {
-		return fmt.Errorf("error at node %s, can not specify remote without a src attribute", node)
-	}
-	if node.Remote {
-		node.Src = srcAttr.Val
-		return nil
+		return fmt.Errorf("error at node %s, node has neither a src element nore any child text, empty script nodes not allowed", node)
 	}
 
 	script := ""
@@ -54,19 +42,19 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 		ctx.path = getPath(node.Src)
 	}
 
-	tokens := js.LexScript(script)
+	tokens := ts.Lex(script)
 	var err error
-	node.Script, err = js.ParseTokens(tokens)
+	node.Script, err = ts.Parse(tokens)
 	if err != nil {
 		return fmt.Errorf("error at node %s, %s", node, err)
 	}
 
 	// Add children
 	for _, i := range node.Script.Imports {
-		newNode := NewNode("script", JSType)
-		attrs := []*html.Attribute{&html.Attribute{Key: "src", Val: i.Src}}
-		if i.Remote {
-			attrs = append(attrs, &html.Attribute{Key: "remote"})
+		newNode := NewNode("script", TSType)
+		attrs := []*html.Attribute{
+			&html.Attribute{Key: "src", Val: i},
+			&html.Attribute{Key: "Type", Val: "text/typescript"},
 		}
 		newNode.SetAttrs(attrs)
 		node.AppendChild(newNode)
@@ -76,13 +64,11 @@ func (node *JSNode) Parse(ctx ParseNodeContext) error {
 }
 
 // Instance replaces props in a node with params
-func (node *JSNode) Instance(ctx InstNodeContext) error {
+func (node *TSNode) Instance(ctx InstNodeContext) error {
 	re := regexp.MustCompile(`\$[_a-zA-Z][_a-zA-Z0-9]*\$`)
-	for i := 0; i < len(node.Script.Lines); i++ {
-		line := &node.Script.Lines[i]
-		for j := 0; j < len(line.Value); j++ {
-			tok := &line.Value[j]
-			// TODO we only need to check template and value types
+	for i := 0; i < len(node.Script.Tokens); i++ {
+		tok := node.Script.Tokens[i]
+		if tok.Type == ts.Value {
 			matches := re.FindAll([]byte(tok.Value), -1)
 			for _, match := range matches {
 				val := ""
@@ -107,33 +93,23 @@ func (node *JSNode) Instance(ctx InstNodeContext) error {
 }
 
 // FindEntry locates all the entry points for the HTML, JS and CSS code in the tree
-func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
+func (node *TSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 	if !node.Visible() {
 		Detach(node)
 		return ctx
 	}
 
-	if node.Remote {
-		ctx.files = ctx.files.Merge(&File{
-			Name:    node.Src,
-			Type:    JSFileType,
-			Entries: []Node{node},
-			Remote:  true,
-		})
-		Detach(node)
-		return ctx
-	}
-
-	if ctx.callerType != JSType {
+	if ctx.callerType != TSType {
 		ctx.files = ctx.files.Merge(&File{
 			Name:    "bundle",
-			Type:    JSFileType,
+			Type:    TSFileType,
 			Entries: []Node{node},
+			Path:    node.Src,
 		})
 		Detach(node)
 	}
 
-	ctx.callerType = JSType
+	ctx.callerType = TSType
 	for _, node := range node.Children() {
 		ctx = node.FindEntry(ctx)
 	}
@@ -142,10 +118,9 @@ func (node *JSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 }
 
 // Render converts a node into a textual representation
-func (node *JSNode) Render(ctx RenderNodeContext) string {
+func (node *TSNode) Render(ctx RenderNodeContext) string {
 	for _, file := range ctx.files {
-		if node.Src == file.Path {
-			// We already renderd this file in higher up
+		if file.Path == node.Src {
 			return ""
 		}
 	}
@@ -160,9 +135,9 @@ func (node *JSNode) Render(ctx RenderNodeContext) string {
 	return ret
 }
 
-// Clone creates a clone of the node
-func (node *JSNode) Clone() Node {
-	clone := JSNode{
+// Clone creats a clone of the node
+func (node *TSNode) Clone() Node {
+	clone := TSNode{
 		BaseNode: BaseNode{data: node.Data(), attr: node.Attrs(), nType: node.Type(), visible: node.Visible()},
 	}
 
@@ -171,7 +146,6 @@ func (node *JSNode) Clone() Node {
 	}
 
 	clone.Src = node.Src
-	clone.Remote = node.Remote
 	clone.Script = node.Script.Clone()
 
 	return &clone

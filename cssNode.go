@@ -143,7 +143,7 @@ func (node *CSSNode) FindEntry(ctx RenderNodeContext) RenderNodeContext {
 }
 
 // Render converts a node into a textual representation
-func (node *CSSNode) Render() string {
+func (node *CSSNode) Render(ctx RenderNodeContext) string {
 	return node.Script.String()
 }
 

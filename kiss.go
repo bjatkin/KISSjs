@@ -300,12 +300,14 @@ const (
 	JSFileType = iota
 	HTMLFileType
 	CSSFileType
+	TSFileType
 )
 
 // File represents a simple file
 type File struct {
 	Name    string
 	Entries []Node
+	Path    string
 	Type    int
 	Remote  bool
 }
@@ -338,6 +340,9 @@ func (file *File) WriteFile(dir string) error {
 	if file.Type == CSSFileType {
 		ext = ".css"
 	}
+	if file.Type == TSFileType {
+		ext = ".ts"
+	}
 
 	dest := dir + "/" + file.Name + ext
 	f, err := os.Create(dest)
@@ -347,7 +352,7 @@ func (file *File) WriteFile(dir string) error {
 
 	content := ""
 	for _, node := range file.Entries {
-		content += node.Render()
+		content += node.Render(RenderNodeContext{})
 	}
 	_, err = f.Write([]byte(content))
 
@@ -391,7 +396,9 @@ func Render(outputDir, viewLocation string, root Node) error {
 				NewNode("link", BaseType, &html.Attribute{Key: "rel", Val: "stylesheet"}, &html.Attribute{Key: "href", Val: viewLocation + "/" + name}),
 			)
 		}
-		if entry.Type == JSFileType {
+
+		// assume that TSFiles will be converted to a js file
+		if entry.Type == JSFileType || entry.Type == TSFileType {
 			name := entry.Name
 			if !entry.Remote {
 				name += ".js"

@@ -5,35 +5,38 @@ import (
 	"regexp"
 )
 
+// These are the typscript token types
 const (
-	keyword = iota
-	openObject
-	closeObject
-	openCloseString
-	escapedToken
-	star
-	comma
-	newLine
-	value
-	whiteSpace
-	comment
-	commentStart
-	blockCommentStart
-	blockCommentEnd
-	any
+	Keyword = iota
+	Export
+	OpenObject
+	CloseObject
+	OpenCloseString
+	EscapedToken
+	Star
+	Comma
+	NewLine
+	Value
+	WhiteSpace
+	Comment
+	CommentStart
+	BlockCommentStart
+	BlockCommentEnd
+	Any
 )
 
 var tokenPatterns = []tokenPattern{
-	tokenPattern{keyword, regexp.MustCompile(`^(import|from)`)},
-	tokenPattern{openObject, regexp.MustCompile(`^{`)},
-	tokenPattern{closeObject, regexp.MustCompile(`^}`)},
-	tokenPattern{openCloseString, regexp.MustCompile(`^[\x60'"]`)},
-	tokenPattern{escapedToken, regexp.MustCompile(`^\\.`)},
-	tokenPattern{star, regexp.MustCompile(`^\*`)},
-	tokenPattern{comma, regexp.MustCompile(`^,`)},
-	tokenPattern{whiteSpace, regexp.MustCompile(`^[ \t]+`)},
-	tokenPattern{newLine, regexp.MustCompile(`^[\n\r]+`)},
-	tokenPattern{value, regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`)},
+	tokenPattern{Keyword, regexp.MustCompile(`^(import|from)`)},
+	tokenPattern{Export, regexp.MustCompile(`^export`)},
+	tokenPattern{OpenObject, regexp.MustCompile(`^{`)},
+	tokenPattern{CloseObject, regexp.MustCompile(`^}`)},
+	tokenPattern{OpenCloseString, regexp.MustCompile(`^[\x60'"]`)},
+	tokenPattern{EscapedToken, regexp.MustCompile(`^\\.`)},
+	tokenPattern{Star, regexp.MustCompile(`^\*`)},
+	tokenPattern{Comma, regexp.MustCompile(`^,`)},
+	tokenPattern{WhiteSpace, regexp.MustCompile(`^[ \t]+`)},
+	tokenPattern{NewLine, regexp.MustCompile(`^[\n\r]+`)},
+	tokenPattern{Value, regexp.MustCompile(`^\$[_a-zA-Z][_a-zA-Z0-9]*\$`)},
 }
 
 // tokenPattern matches a regex with a tokenType
@@ -55,6 +58,28 @@ type Script struct {
 	Tokens  []Token
 }
 
+func (script Script) String() string {
+	var ret string
+	for _, token := range script.Tokens {
+		ret += token.Value
+	}
+	return ret
+}
+
+// Clone preforms a deep clone of the script object
+func (script Script) Clone() Script {
+	clone := Script{}
+	for _, imp := range script.Imports {
+		clone.Imports = append(clone.Imports, imp)
+	}
+
+	for _, tok := range script.Tokens {
+		clone.Tokens = append(clone.Tokens, Token{tok.Type, tok.Value, tok.LineNum})
+	}
+
+	return clone
+}
+
 // Lex lexes a ts script and returns a series of tokens
 func Lex(script string) []Token {
 	tokens := []Token{}
@@ -72,7 +97,7 @@ func Lex(script string) []Token {
 					},
 				)
 				i += index[1]
-				if token.tType == newLine {
+				if token.tType == NewLine {
 					line++
 				}
 				break
@@ -81,7 +106,7 @@ func Lex(script string) []Token {
 		if i == start {
 			tokens = append(tokens,
 				Token{
-					Type:    any,
+					Type:    Any,
 					Value:   script[i : i+1],
 					LineNum: line,
 				},
@@ -94,14 +119,18 @@ func Lex(script string) []Token {
 	ret := []Token{}
 	i = 0
 	for i < len(tokens) {
-		if tokens[i].Type == openCloseString {
+		if tokens[i].Type == Export {
+			i++
+			continue
+		}
+		if tokens[i].Type == OpenCloseString {
 			count, str := lexString(tokens[i:])
 			ret = append(ret, str)
 			i += count
 			continue
 		}
-		if tokens[i].Type == commentStart ||
-			tokens[i].Type == blockCommentStart {
+		if tokens[i].Type == CommentStart ||
+			tokens[i].Type == BlockCommentStart {
 			count := lexComment(tokens[i:])
 			i += count
 			continue
@@ -115,13 +144,13 @@ func Lex(script string) []Token {
 
 func lexString(script []Token) (int, Token) {
 	open := script[0].Value
-	ret := Token{Type: value, Value: open, LineNum: script[0].LineNum}
+	ret := Token{Type: Value, Value: open, LineNum: script[0].LineNum}
 	i := 1
 	for i < len(script) {
 		tok := script[i]
 		ret.Value += tok.Value
 		i++
-		if tok.Type == openCloseString && tok.Value == open {
+		if tok.Type == OpenCloseString && tok.Value == open {
 			return i, ret
 		}
 	}
@@ -129,9 +158,9 @@ func lexString(script []Token) (int, Token) {
 }
 
 func lexComment(script []Token) int {
-	end := newLine
-	if script[0].Type == blockCommentStart {
-		end = blockCommentEnd
+	end := NewLine
+	if script[0].Type == BlockCommentStart {
+		end = BlockCommentEnd
 	}
 
 	i := 1
@@ -169,10 +198,10 @@ func Parse(script []Token) (Script, error) {
 func parseImport(script []Token) (int, string) {
 	var i int
 	var ret string
-	next := keyword //import
+	next := Keyword //import
 	for i < len(script) {
 		tok := script[i]
-		if tok.Type == whiteSpace || tok.Type == any || tok.Type == comma {
+		if tok.Type == WhiteSpace || tok.Type == Any || tok.Type == Comma {
 			i++
 			continue
 		}
@@ -180,32 +209,32 @@ func parseImport(script []Token) (int, string) {
 			return 0, ""
 		}
 
-		if tok.Type == newLine {
+		if tok.Type == NewLine {
 			if ret == "" {
 				return 0, ""
 			}
 			return i + 1, ret
 		}
 
-		if tok.Type == keyword {
+		if tok.Type == Keyword {
 			if tok.Value == "import" {
-				next = openObject
+				next = OpenObject
 			}
 			if tok.Value == "from" {
-				next = value
+				next = Value
 			}
 		}
 
-		if tok.Type == openObject {
-			next = closeObject
+		if tok.Type == OpenObject {
+			next = CloseObject
 		}
-		if tok.Type == closeObject {
-			next = keyword
+		if tok.Type == CloseObject {
+			next = Keyword
 		}
 
-		if tok.Type == value {
-			next = newLine
-			ret = tok.Value
+		if tok.Type == Value {
+			next = NewLine
+			ret = tok.Value[1:len(tok.Value)-1] + ".ts"
 		}
 		i++
 	}

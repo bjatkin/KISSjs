@@ -1,7 +1,6 @@
 package ts
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -13,38 +12,38 @@ func TestLex(t *testing.T) {
 
 	tests := []test{
 		test{
-			ts: `import {t, d} from '../ts/utils.ts'
+			ts: `import {t, d} from '../ts/utils'
 			let b: int = $b$;`,
 			check: []Token{
-				Token{keyword, "import", 0},
-				Token{whiteSpace, " ", 0},
-				Token{openObject, "{", 0},
-				Token{any, "t", 0},
-				Token{comma, ",", 0},
-				Token{whiteSpace, " ", 0},
-				Token{any, "d", 0},
-				Token{closeObject, "}", 0},
-				Token{whiteSpace, " ", 0},
-				Token{keyword, "from", 0},
-				Token{whiteSpace, " ", 0},
-				Token{value, "'../ts/utils.ts'", 0},
-				Token{newLine, "\n", 0},
-				Token{whiteSpace, "			", 1},
-				Token{any, "l", 1},
-				Token{any, "e", 1},
-				Token{any, "t", 1},
-				Token{whiteSpace, " ", 1},
-				Token{any, "b", 1},
-				Token{any, ":", 1},
-				Token{whiteSpace, " ", 1},
-				Token{any, "i", 1},
-				Token{any, "n", 1},
-				Token{any, "t", 1},
-				Token{whiteSpace, " ", 1},
-				Token{any, "=", 1},
-				Token{whiteSpace, " ", 1},
-				Token{value, "$b$", 1},
-				Token{any, ";", 1},
+				Token{Keyword, "import", 0},
+				Token{WhiteSpace, " ", 0},
+				Token{OpenObject, "{", 0},
+				Token{Any, "t", 0},
+				Token{Comma, ",", 0},
+				Token{WhiteSpace, " ", 0},
+				Token{Any, "d", 0},
+				Token{CloseObject, "}", 0},
+				Token{WhiteSpace, " ", 0},
+				Token{Keyword, "from", 0},
+				Token{WhiteSpace, " ", 0},
+				Token{Value, "'../ts/utils'", 0},
+				Token{NewLine, "\n", 0},
+				Token{WhiteSpace, "			", 1},
+				Token{Any, "l", 1},
+				Token{Any, "e", 1},
+				Token{Any, "t", 1},
+				Token{WhiteSpace, " ", 1},
+				Token{Any, "b", 1},
+				Token{Any, ":", 1},
+				Token{WhiteSpace, " ", 1},
+				Token{Any, "i", 1},
+				Token{Any, "n", 1},
+				Token{Any, "t", 1},
+				Token{WhiteSpace, " ", 1},
+				Token{Any, "=", 1},
+				Token{WhiteSpace, " ", 1},
+				Token{Value, "$b$", 1},
+				Token{Any, ";", 1},
 			},
 		},
 	}
@@ -80,8 +79,8 @@ func TestParse(t *testing.T) {
 
 	tests := []test{
 		test{
-			ts: `import {a, d} from "../test/script.ts"
-import {} from "../hello/world.ts"
+			ts: `import {a, d} from "../test/script"
+import {} from "hello/world"
 let a: bool = true;`,
 			check: Script{
 				Imports: []string{
@@ -89,25 +88,25 @@ let a: bool = true;`,
 					"hello/world.ts",
 				},
 				Tokens: []Token{
-					Token{any, "l", 2},
-					Token{any, "e", 2},
-					Token{any, "t", 2},
-					Token{whiteSpace, " ", 2},
-					Token{any, "a", 2},
-					Token{any, ":", 2},
-					Token{whiteSpace, " ", 2},
-					Token{any, "b", 2},
-					Token{any, "o", 2},
-					Token{any, "o", 2},
-					Token{any, "l", 2},
-					Token{whiteSpace, " ", 2},
-					Token{any, "=", 2},
-					Token{whiteSpace, " ", 2},
-					Token{any, "t", 2},
-					Token{any, "r", 2},
-					Token{any, "u", 2},
-					Token{any, "e", 2},
-					Token{any, ";", 2},
+					Token{Any, "l", 2},
+					Token{Any, "e", 2},
+					Token{Any, "t", 2},
+					Token{WhiteSpace, " ", 2},
+					Token{Any, "a", 2},
+					Token{Any, ":", 2},
+					Token{WhiteSpace, " ", 2},
+					Token{Any, "b", 2},
+					Token{Any, "o", 2},
+					Token{Any, "o", 2},
+					Token{Any, "l", 2},
+					Token{WhiteSpace, " ", 2},
+					Token{Any, "=", 2},
+					Token{WhiteSpace, " ", 2},
+					Token{Any, "t", 2},
+					Token{Any, "r", 2},
+					Token{Any, "u", 2},
+					Token{Any, "e", 2},
+					Token{Any, ";", 2},
 				},
 			},
 		},
@@ -123,12 +122,30 @@ let a: bool = true;`,
 		if len(script.Imports) != len(run.check.Imports) {
 			t.Errorf("(%d) wrong number of imports got %d, but expected %d", i, len(script.Imports), len(run.check.Imports))
 		}
+
+		for ii, imp := range run.check.Imports {
+			if imp != script.Imports[ii] {
+				t.Errorf("(%d|%d) expected import %s, but got %s", i, ii, imp, script.Imports[ii])
+			}
+		}
+
 		if len(script.Tokens) != len(run.check.Tokens) {
-			fmt.Println("\n\n\n", script.Tokens)
 			t.Errorf("(%d) wrong number of tokens got %d, but expected %d", i, len(script.Tokens), len(run.check.Tokens))
 
 		}
 
-		// TODO: finish this
+		for ii, tok := range run.check.Tokens {
+			if tok.Value != script.Tokens[ii].Value {
+				t.Errorf("(%d|%d) wrong token value got %s, but expected %s", i, ii, tok.Value, script.Tokens[ii].Value)
+			}
+
+			if tok.Type != script.Tokens[ii].Type {
+				t.Errorf("(%d|%d) wrong token type got %d, expected %d", i, ii, tok.Type, script.Tokens[ii].Type)
+			}
+
+			if tok.LineNum != script.Tokens[ii].LineNum {
+				t.Errorf("(%d|%d) wrong token line number got %d, expected %d", i, ii, tok.LineNum, script.Tokens[ii].Type)
+			}
+		}
 	}
 }

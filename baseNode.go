@@ -18,6 +18,7 @@ const (
 	ComponentType
 	TextType
 	JSType
+	TSType
 	CSSType
 )
 
@@ -34,6 +35,10 @@ func ToNodeType(node *html.Node) NodeType {
 		return CSSType
 	}
 	if data == "script" {
+		sType := getAttr(node, "type")
+		if sType.Val == "text/typescript" {
+			return TSType
+		}
 		return JSType
 	}
 
@@ -54,7 +59,9 @@ func (nType NodeType) String() string {
 	case TextType:
 		return "Text Node"
 	case JSType:
-		return "Java Script Node"
+		return "Javascript Node"
+	case TSType:
+		return "Typescript Node"
 	case CSSType:
 		return "CSS Style Node"
 	default:
@@ -71,7 +78,7 @@ type Node interface {
 	String() string
 	Parse(ParseNodeContext) error
 	Instance(InstNodeContext) error
-	Render() string
+	Render(RenderNodeContext) string
 	FindEntry(RenderNodeContext) RenderNodeContext
 	Type() NodeType
 	Clone() Node
@@ -162,6 +169,8 @@ func NewNode(data string, nType NodeType, attr ...*html.Attribute) Node {
 	switch nType {
 	case JSType:
 		return &JSNode{BaseNode: base}
+	case TSType:
+		return &TSNode{BaseNode: base}
 	case CSSType:
 		return &CSSNode{BaseNode: base}
 	case ImportType:
@@ -352,7 +361,7 @@ func (node *BaseNode) Instance(ctx InstNodeContext) error {
 }
 
 // Render converts a node into a textual representation
-func (node *BaseNode) Render() string {
+func (node *BaseNode) Render(ctx RenderNodeContext) string {
 	ret := ""
 	if node.visible {
 		ret += "<" + node.Data()
@@ -370,7 +379,7 @@ func (node *BaseNode) Render() string {
 	}
 
 	for _, child := range node.Children() {
-		ret += child.Render()
+		ret += child.Render(ctx)
 	}
 
 	if node.Data() == "hr" ||

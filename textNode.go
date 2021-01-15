@@ -31,14 +31,14 @@ func (node *TextNode) Instance(ctx InstNodeContext) error {
 }
 
 // Render returns the text on the data
-func (node *TextNode) Render() string {
+func (node *TextNode) Render(ctx RenderNodeContext) string {
 	ret := ""
 	if node.Visible() {
 		ret += node.Data()
 	}
 
 	for _, child := range node.Children() {
-		ret += child.Render()
+		ret += child.Render(ctx)
 	}
 
 	return ret
