@@ -392,7 +392,7 @@ func Render(outputDir, viewLocation string, root Node) error {
 	}
 
 	sorted := []Node{}
-	for i := 0; i <= maxDepth; i++ {
+	for i := maxDepth; i >= 0; i-- {
 		for ii := 0; ii < len(jsNodes); ii++ {
 			if jsNodes[ii].(*JSNode).Depth == i {
 				sorted = append(sorted, jsNodes[ii])
@@ -400,6 +400,9 @@ func Render(outputDir, viewLocation string, root Node) error {
 		}
 	}
 	jsNodes = sorted
+	for _, node := range sorted {
+		fmt.Println(node, node.(*JSNode).Depth)
+	}
 
 	done := []string{}
 	for _, node := range jsNodes {
@@ -419,7 +422,7 @@ func Render(outputDir, viewLocation string, root Node) error {
 			}
 		}
 		if new {
-			jsBundle = src + jsBundle
+			jsBundle = jsBundle + src
 			done = append(done, src)
 		}
 
@@ -444,7 +447,7 @@ func Render(outputDir, viewLocation string, root Node) error {
 	}
 
 	sorted = []Node{}
-	for i := 0; i <= maxDepth; i++ {
+	for i := maxDepth; i >= 0; i-- {
 		for ii := 0; ii < len(tsNodes); ii++ {
 			if tsNodes[ii].(*TSNode).Depth == i {
 				sorted = append(sorted, tsNodes[ii])
@@ -463,7 +466,7 @@ func Render(outputDir, viewLocation string, root Node) error {
 			}
 		}
 		if new {
-			tsBundle = src + tsBundle
+			tsBundle = tsBundle + src
 			done = append(done, src)
 		}
 		Detach(node)
